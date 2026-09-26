@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             EducationSeeder::class,
             ChildParentSeeder::class,
             ExaminationSeeder::class,
+            PosyanduDemoSeeder::class,
         ]);
     }
 }
