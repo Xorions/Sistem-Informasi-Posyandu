@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 
 const menu = [
-  { label: 'Dashboard', to: '/', icon: '◧', roles: ['SUPER_ADMIN','ADMIN_POSYANDU','KADER','ORANG_TUA'] },
+  { label: 'Beranda', to: '/', icon: '◧', roles: ['SUPER_ADMIN','ADMIN_POSYANDU','KADER','ORANG_TUA'] },
 ]
 
 const dataMenu = [

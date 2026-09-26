@@ -59,7 +59,7 @@ function AppRoutes() {
         <Route path="users" element={<RoleGuard allow={['SUPER_ADMIN','ADMIN_POSYANDU']}><Users /></RoleGuard>} />
         <Route path="audit-logs" element={<RoleGuard allow={['SUPER_ADMIN','ADMIN_POSYANDU']}><AuditLogs /></RoleGuard>} />
       </Route>
-      <Route path="*" element={<div className="p-10 text-center">404 - Halaman tidak ditemukan. <a href="/" className="text-teal-600">Kembali ke Dashboard</a></div>} />
+      <Route path="*" element={<div className="p-10 text-center">404 - Halaman tidak ditemukan. <a href="/" className="text-teal-600">Kembali ke Beranda</a></div>} />
     </Routes>
   )
 }

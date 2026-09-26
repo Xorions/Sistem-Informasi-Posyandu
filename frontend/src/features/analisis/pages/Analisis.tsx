@@ -5,6 +5,7 @@ import { useDebounce } from "@/shared/hooks/useDebounce"
 import { Badge } from "@/shared/components/ui/badge"
 import { Link } from 'react-router-dom'
 import { formatDate } from "@/shared/lib/utils"
+import { GrowthAnalysis } from '../components/GrowthAnalysis'
 
 export default function Analisis() {
   const [search, setSearch] = useState('')
@@ -112,39 +113,10 @@ export default function Analisis() {
             </CardContent>
           </Card>
 
-          {analysis.indicators && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(analysis.indicators).map(([key, val]:any)=>(
-                <Card key={key}>
-                  <CardHeader title={key==='weight'?'Berat Badan':key==='height'?'Tinggi/Panjang':key==='head_circumference'?'Lingkar Kepala':key==='arm_circumference'?'LiLA (Lingkar Lengan Atas)':key} />
-                  <CardContent className="space-y-2">
-                    <p className="text-2xl font-bold">{val.value ?? '-'} <span className="text-sm font-normal text-slate-500">{key==='weight'?'kg':'cm'}</span></p>
-                    <Badge label={val.label || val.status || '-'} />
-                    <p className="text-xs text-slate-600">{val.message}</p>
-                    {val.deviation_percent !== undefined && <p className="text-xs text-slate-400">Deviasi: {val.deviation_percent}% dari referensi {val.reference}</p>}
-                    {val.plausible_min !== undefined && <p className="text-xs text-slate-400">Rentang pemantauan: {val.plausible_min} – {val.plausible_max}</p>}
-                    {val.source && <p className="text-[11px] text-slate-400">Sumber: {val.source}</p>}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          <Card>
-            <CardHeader title="Rekomendasi Edukasi (rule-based)" subtitle="Dari NutritionRecommendationService – bersifat edukasi & tindak lanjut" />
-            <CardContent>
-              {recommendations.length===0 ? <p className="text-sm text-slate-500">Belum ada rekomendasi.</p> : (
-                <div className="space-y-3">
-                  {recommendations.map((rec:any, i:number)=>(
-                    <div key={i} className={`p-3 rounded-xl border ${rec.priority==='urgent'?'bg-red-50 border-red-200':rec.priority==='high'?'bg-amber-50 border-amber-200':'bg-slate-50 border-slate-200'}`}>
-                      <p className="font-semibold text-sm">{rec.title} <span className="text-xs font-normal text-slate-500">({rec.priority})</span></p>
-                      <p className="text-sm text-slate-700 mt-1">{rec.content}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <GrowthAnalysis 
+            indicators={analysis.indicators} 
+            recommendations={recommendations} 
+          />
 
           {showHistory && (
             <Card>
