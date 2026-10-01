@@ -3,9 +3,14 @@ import { api } from "@/shared/lib/api"
 import { Card, CardContent, CardHeader } from "@/shared/components/ui/card"
 import { useToast } from "@/shared/components/ui/toast"
 import { formatDate } from "@/shared/lib/utils"
+import { useAuth } from '@/features/auth/AuthContext'
+import { can } from '@/shared/lib/rbac'
 
 export default function Examinations() {
   const toast = useToast()
+  // Orang tua boleh melihat hasil pemeriksaan, tetapi tidak boleh mencatat.
+  const { role } = useAuth()
+  const canManage = can(role, 'manage-pemeriksaan')
   const [children, setChildren] = useState<any[]>([])
   const [posyandus, setPosyandus] = useState<any[]>([])
   const [exams, setExams] = useState<any[]>([])
@@ -61,6 +66,7 @@ export default function Examinations() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold">Pemeriksaan</h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {canManage && (
         <Card className="lg:col-span-1">
           <CardHeader title="Form Pemeriksaan" subtitle="Mobile-first • Simpan BB/TB/PB/LK/LiLA" />
           <CardContent>
@@ -118,6 +124,19 @@ export default function Examinations() {
             </form>
           </CardContent>
         </Card>
+        )}
+
+        {!canManage && (
+          <Card className="lg:col-span-1 h-fit">
+            <CardHeader title="Mode lihat saja" />
+            <CardContent>
+              <p className="text-sm text-slate-600">
+                Role Anda dapat melihat hasil pemeriksaan, namun tidak dapat mencatat pemeriksaan baru.
+                Hubungi kader posyandu bila ada jadwal pemeriksaan.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="lg:col-span-2 space-y-4">
           <Card>

@@ -7,9 +7,14 @@ import { ConfirmDeleteModal } from "@/shared/components/ui/modal"
 import { useToast } from "@/shared/components/ui/toast"
 import { useDebounce } from "@/shared/hooks/useDebounce"
 import { formatDate, ageFromDob } from "@/shared/lib/utils"
+import { useAuth } from '@/features/auth/AuthContext'
+import { can } from '@/shared/lib/rbac'
 
 export default function ChildrenList() {
   const toast = useToast()
+  // Orang tua hanya melihat anaknya, tanpa tombol ubah atau hapus.
+  const { role } = useAuth()
+  const canManage = can(role, 'manage-anak')
   const [data, setData] = useState<any[]>([])
   const [meta, setMeta] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -109,8 +114,10 @@ export default function ChildrenList() {
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
                         <Link to={`/children/${c.id}`} className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs hover:bg-white">Lihat</Link>
+                        {canManage && <>
                         <Link to={`/children/${c.id}/edit`} className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs hover:bg-slate-50">Edit</Link>
                         <button onClick={()=>setDeleteId(c.id)} className="px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs hover:bg-red-100">Hapus</button>
+                        </>}
                       </div>
                     </td>
                   </tr>

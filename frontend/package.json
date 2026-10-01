@@ -4,15 +4,21 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently --kill-others-on-fail --names \"API,WEB\" --prefix-colors \"magenta,cyan\" \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "cd ../backend && php artisan serve --host=127.0.0.1 --port=8000",
+    "dev:web": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "sync:public": "node scripts/sync-public.mjs",
+    "build:prod": "tsc && vite build && node scripts/sync-public.mjs",
+    "preview": "vite preview",
+    "setup": "npm install && npm --prefix ../backend install --no-interaction"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.6.1",
+    "concurrently": "^10.0.5",
     "postcss": "^8.5.28",
     "tailwindcss": "^3.4.10",
     "typescript": "~6.0.2",
