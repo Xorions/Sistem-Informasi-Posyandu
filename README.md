@@ -238,6 +238,9 @@ Security checklist per spec 65 sudah diimplementasikan di Policies & audit.
 
 ---
 
+> Catatan untuk pengelola project dan assistant AI: lihat [AGENTS.md](AGENTS.md).
+> Isinya berisi aturan arsitektur, jebakan yang pernah kejadian, dan daftar perbaikan yang sengaja ditunda.
+
 ## 14. Lisensi
 
 MIT (Laravel). Data dummy, jangan gunakan data pribadi nyata.
