@@ -21,6 +21,3 @@ backend/storage/framework/views/*
 .vscode/
 .DS_Store
 Thumbs.db
-
-# Backup lokal project, tidak perlu masuk repo
-Posyandu Terpadu - Copy/
