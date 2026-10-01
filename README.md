@@ -102,7 +102,20 @@ Jangan commit `.env` asli.
 ## 6. Database Setup
 
 - Migrations sudah include indexing per spec 59, softDeletes, transaction.
-- Seeder: 4 Posyandu (Cut Nyak Dien, Kartika, Kartini, Raden Intan), 7 user, 8 kader, 8 edukasi, 10 anak, 7 orang tua, 4 ibu hamil beserta riwayat pemeriksaan, 40 catatan vaksin/vitamin, jadwal per posyandu, serta pemeriksaan + growth_records dengan LiLA.
+- Seeder menghasilkan:
+
+| Posyandu | Jumlah anak |
+|----------|-------------|
+| PSY001 Cut Nyak Dien | 14 |
+| PSY002 Kartika | 15 |
+| PSY003 Kartini | 17 |
+| PSY004 Raden Intan | 15 |
+| **Total** | **61** |
+
+  Anak dikelompokkan dalam keluarga dua bersaudara di posyandu yang sama, dengan 64 orang tua/wali.
+  Dilengkapi 8 kader, 8 artikel edukasi, 4 ibu hamil beserta 12 hasil pemeriksaan,
+  348 catatan vaksin, 92 catatan vitamin, 8 jadwal kegiatan, dan 177 pemeriksaan
+  dengan `growth_records` yang selalu mengisi LiLA.
 - `growth_standards` siap untuk diisi standar resmi (abstraksi, bukan threshold medis sembarangan).
 
 ---

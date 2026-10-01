@@ -11,84 +11,50 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
 /**
- * Data Kesehatan Ibu dan Anak: ibu hamil beserta riwayat pemeriksaan rutinnya.
+ * Data Kesehatan Ibu dan Anak: satu ibu hamil per posyandu beserta riwayat
+ * pemeriksaan rutinnya.
  *
- * Usia kehamilan dihitung dari HPHT agar konsisten dengan cara perhitungan
- * klinis, bukan disimpan ulang.
+ * Ibu dipilih secara dinamis dari tabel `parents` (ibu yang punya anak
+ * terdaftar di posyandu tersebut), supaya tetap konsisten meskipun data
+ * anak dan orang tua berubah.
+ *
+ * Usia kehamilan dihitung dari HPHT agar sesuai cara perhitungan klinis,
+ * bukan disimpan ulang.
  */
 class IbuHamilSeeder extends Seeder
 {
+    /** Kondisi kehamilan per kode posyandu, dibuat agarspread antar trimester. */
+    private const KONDISI = [
+        'PSY001' => ['minggu' => 12, 'jarak' => 26, 'anak_lahir' => 2, 'fundus' => 25.0, 'golongan' => 'O', 'riwayat' => null],
+        'PSY002' => ['minggu' => 24, 'jarak' => 14, 'anak_lahir' => 1, 'fundus' => 30.5, 'golongan' => 'A', 'riwayat' => 'Riwayat anemia ringan'],
+        'PSY003' => ['minggu' => 36, 'jarak' => 40, 'anak_lahir' => 3, 'fundus' => 33.0, 'golongan' => 'B', 'riwayat' => null],
+        'PSY004' => ['minggu' => 8, 'jarak' => 10, 'anak_lahir' => 0, 'fundus' => 22.5, 'golongan' => 'AB', 'riwayat' => null],
+    ];
+
     public function run(): void
     {
-        $posyandus = Posyandu::orderBy('kode_posyandu')->get()->keyBy('kode_posyandu');
         $examiner = User::where('role', 'KADER')->first();
 
-        $data = [
-            [
-                'parent_nik' => '3201010101010002',
-                'posyandu' => 'PSY001',
-                'hpht' => '2026-03-05',
-                'jarak_kehamilan' => 30,
-                'jumlah_anak_lahir' => 2,
-                'tinggi_funds' => 32.0,
-                'golongan_darah' => 'O',
-                'riwayat_penyakit' => null,
-            ],
-            [
-                'parent_nik' => '3201010101010004',
-                'posyandu' => 'PSY002',
-                'hpht' => '2026-06-20',
-                'jarak_kehamilan' => 14,
-                'jumlah_anak_lahir' => 1,
-                'tinggi_funds' => 30.5,
-                'golongan_darah' => 'A',
-                'riwayat_penyakit' => 'Riwayat anemia ringan',
-            ],
-            [
-                'parent_nik' => '3201010101010006',
-                'posyandu' => 'PSY003',
-                'hpht' => '2026-01-12',
-                'jarak_kehamilan' => 42,
-                'jumlah_anak_lahir' => 3,
-                'tinggi_funds' => 33.0,
-                'golongan_darah' => 'B',
-                'riwayat_penyakit' => null,
-            ],
-            [
-                'parent_nik' => '3201010101010007',
-                'posyandu' => 'PSY004',
-                'hpht' => '2026-07-08',
-                'jarak_kehamilan' => 10,
-                'jumlah_anak_lahir' => 0,
-                'tinggi_funds' => 29.8,
-                'golongan_darah' => 'AB',
-                'riwayat_penyakit' => null,
-            ],
-        ];
+        foreach (self::KONDISI as $kode => $kondisi) {
+            $ibu = $this->pilihIbu($kode);
 
-        foreach ($data as $d) {
-            // Hanya orang tua perempuan yang dapat menjadi ibu hamil.
-            $parent = ParentModel::where('nik', $d['parent_nik'])
-                ->where('jenis_kelamin', 'P')
-                ->first();
-            $posyandu = $posyandus[$d['posyandu']] ?? null;
-
-            if (! $parent || ! $posyandu) {
+            if (! $ibu) {
                 continue;
             }
 
-            $hpl = Carbon::parse($d['hpht'])->addDays(280);
+            $hpht = now()->subWeeks($kondisi['minggu']);
+            $hpl = $hpht->copy()->addDays(280);
 
             $ibuHamil = IbuHamil::firstOrCreate(
-                ['parent_id' => $parent->id, 'tanggal_perkiraan_lahir' => $hpl->toDateString()],
+                ['parent_id' => $ibu->id, 'posyandu_id' => $ibu->getAttribute('posyandu_id')],
                 [
-                    'posyandu_id' => $posyandu->id,
-                    'hpht' => $d['hpht'],
-                    'jarak_kehamilan' => $d['jarak_kehamilan'],
-                    'jumlah_anak_lahir' => $d['jumlah_anak_lahir'],
-                    'tinggi_funds' => $d['tinggi_funds'],
-                    'golongan_darah' => $d['golongan_darah'],
-                    'riwayat_penyakit' => $d['riwayat_penyakit'],
+                    'hpht' => $hpht->toDateString(),
+                    'tanggal_perkiraan_lahir' => $hpl->toDateString(),
+                    'jarak_kehamilan' => $kondisi['jarak'],
+                    'jumlah_anak_lahir' => $kondisi['anak_lahir'],
+                    'tinggi_funds' => $kondisi['fundus'],
+                    'golongan_darah' => $kondisi['golongan'],
+                    'riwayat_penyakit' => $kondisi['riwayat'],
                     'status' => 'active',
                 ]
             );
@@ -97,14 +63,39 @@ class IbuHamilSeeder extends Seeder
                 continue;
             }
 
-            // Tiga pemeriksaan terakhir, satu per trimester.
             foreach ($this->pemeriksaanRows($ibuHamil, $examiner) as $row) {
                 PemeriksaanBumil::create($row);
             }
         }
     }
 
-/**
+    /**
+     * Ibu yang punya anak terdaftar di posyandu tertentu.
+     * Memakai relasi pivot `child_parent` dengan relationship 'Ibu'.
+     */
+    private function pilihIbu(string $kodePosyandu): ?ParentModel
+    {
+        $posyandu = Posyandu::where('kode_posyandu', $kodePosyandu)->first();
+
+        if (! $posyandu) {
+            return null;
+        }
+
+        $ibu = ParentModel::where('jenis_kelamin', 'P')
+            ->whereHas('children', fn ($q) => $q->where('posyandu_id', $posyandu->id))
+            ->first();
+
+        if (! $ibu) {
+            return null;
+        }
+
+        // Dipakai untuk mengisi posyandu_id pada record ibu hamil.
+        $ibu->setAttribute('posyandu_id', $posyandu->id);
+
+        return $ibu;
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     private function pemeriksaanRows(IbuHamil $ibuHamil, ?User $examiner): array
@@ -123,9 +114,7 @@ class IbuHamilSeeder extends Seeder
         $rows = [];
 
         foreach ($trimesters as $t) {
-            $tanggal = $ibuHamil->hpht
-                ? Carbon::parse($ibuHamil->hpht)->addWeeks($t['usia'])
-                : Carbon::now()->subWeeks($t['usia']);
+            $tanggal = Carbon::parse($ibuHamil->hpht)->addWeeks($t['usia']);
 
             $rows[] = [
                 'ibu_hamil_id' => $ibuHamil->id,

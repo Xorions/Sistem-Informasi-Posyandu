@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\Role;
 use App\Models\ParentModel;
+use App\Models\Posyandu;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -11,15 +12,24 @@ use Illuminate\Support\Facades\Hash;
 /**
  * Akun demo ORANG_TUA.
  *
- * Dijalankan setelah ChildParentSeeder agar `parent_id` bisa diisi. Akun ini
- * hanya akan melihat anak-anaknya sendiri, bukan seluruh anak di posyandu.
+ * Dijalankan setelah ChildParentSeeder. Akun ini ditautkan ke satu ibu di
+ * posyandu pertama, sehingga hanya melihat anak-anaknya sendiri dan bukan
+ * seluruh anak di posyandu tersebut.
  */
 class OrangTuaSeeder extends Seeder
 {
     public function run(): void
     {
-        // Siti Aminah adalah ibu dari anak-anak bernomor genap.
-        $ibu = ParentModel::where('nik', '3201010101010002')->first();
+        $posyandu = Posyandu::orderBy('kode_posyandu')->first();
+
+        if (! $posyandu) {
+            return;
+        }
+
+        // Ibu pertama yang punya anak di posyandu pertama.
+        $ibu = ParentModel::where('jenis_kelamin', 'P')
+            ->whereHas('children', fn ($q) => $q->where('posyandu_id', $posyandu->id))
+            ->first();
 
         if (! $ibu) {
             return;

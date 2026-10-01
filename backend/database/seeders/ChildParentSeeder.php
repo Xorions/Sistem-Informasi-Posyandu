@@ -7,63 +7,178 @@ use App\Models\ParentModel;
 use App\Models\Posyandu;
 use Illuminate\Database\Seeder;
 
+/**
+ * Data anak dan orang tua/wali untuk keempat posyandu.
+ *
+ * Jumlah anak mengikuti data lapangan:
+ *   PSY001 Cut Nyak Dien : 14
+ *   PSY002 Kartika       : 15
+ *   PSY003 Kartini       : 17
+ *   PSY004 Raden Intan   : 15
+ *
+ * Anak dikelompokkan dalam keluarga dua bersaudara dan tetap berada di
+ * posyandu yang sama, sesuai kondisi pendaftaran pada buku KIA.
+ */
 class ChildParentSeeder extends Seeder
 {
+    /** Jumlah anak per kode posyandu. */
+    private const JUMLAH_ANAK = [
+        'PSY001' => 14,
+        'PSY002' => 15,
+        'PSY003' => 17,
+        'PSY004' => 15,
+    ];
+
+    private const NAMA_LAKI = [
+        'Ahmad', 'Bagus', 'Dimas', 'Eko', 'Fajar', 'Galih', 'Hendra', 'Irfan',
+        'Joko', 'Kevin', 'Lukman', 'Nanda', 'Oscar', 'Panji', 'Rizky', 'Satria',
+        'Taufik', 'Wahyu', 'Yusuf', 'Zaki',
+    ];
+
+    private const NAMA_PEREMPUAN = [
+        'Anisa', 'Bunga', 'Citra', 'Dewi', 'Endah', 'Fitri', 'Gita', 'Hesti',
+        'Indah', 'Julia', 'Kartika', 'Lina', 'Maya', 'Nadia', 'Olivia', 'Putri',
+        'Rina', 'Sari', 'Tiara', 'Wulan',
+    ];
+
+    private const NAMA_KELUARGA = [
+        'Saputra', 'Wijaya', 'Hidayat', 'Nugroho', 'Setiawan',
+        'Permata', 'Ramadhan', 'Maulana', 'Kusuma', 'Pratama',
+    ];
+
+    private const PEKERJAAN_LAKI = ['Petani', 'Wiraswasta', 'Buruh', 'Nelayan', 'Pedagang', 'Tukang'];
+
+    private const PEKERJAAN_PEREMPUAN = ['Ibu Rumah Tangga', 'Guru', 'Pedagang', 'Penjahit', 'Perawat'];
+
     public function run(): void
     {
-        $posyandus = Posyandu::all();
-        $parentsData = [
-            ['nik' => '3201010101010001', 'nama_lengkap' => 'Budi Santoso', 'jenis_kelamin' => 'L', 'pekerjaan' => 'Petani', 'nomor_telepon' => '081111111001'],
-            ['nik' => '3201010101010002', 'nama_lengkap' => 'Siti Aminah', 'jenis_kelamin' => 'P', 'pekerjaan' => 'Ibu Rumah Tangga', 'nomor_telepon' => '081111111002'],
-            ['nik' => '3201010101010003', 'nama_lengkap' => 'Joko Widodo', 'jenis_kelamin' => 'L', 'pekerjaan' => 'Wiraswasta', 'nomor_telepon' => '081111111003'],
-            ['nik' => '3201010101010004', 'nama_lengkap' => 'Dewi Lestari', 'jenis_kelamin' => 'P', 'pekerjaan' => 'Guru', 'nomor_telepon' => '081111111004'],
-            ['nik' => '3201010101010005', 'nama_lengkap' => 'Ahmad Fauzi', 'jenis_kelamin' => 'L', 'pekerjaan' => 'Buruh', 'nomor_telepon' => '081111111005'],
-            ['nik' => '3201010101010006', 'nama_lengkap' => 'Sari Wulandari', 'jenis_kelamin' => 'P', 'pekerjaan' => 'Penjahit', 'nomor_telepon' => '081111111006'],
-            ['nik' => '3201010101010007', 'nama_lengkap' => 'Maya Puspita', 'jenis_kelamin' => 'P', 'pekerjaan' => 'Pedagang', 'nomor_telepon' => '081111111007'],
-        ];
-        $parents = [];
-        foreach ($parentsData as $pd) {
-            $parents[] = ParentModel::firstOrCreate(['nik' => $pd['nik']], array_merge($pd, ['alamat' => 'Desa Sukamaju', 'tempat_lahir' => 'Bandung', 'tanggal_lahir' => '1990-01-01']));
-        }
-        $childrenData = [
-            ['nama_lengkap' => 'Ananda Putra', 'nama_panggilan' => 'Ananda', 'tempat_lahir' => 'Bandung', 'tanggal_lahir' => '2023-03-10', 'jenis_kelamin' => 'L'],
-            ['nama_lengkap' => 'Citra Dewi', 'nama_panggilan' => 'Citra', 'tempat_lahir' => 'Bandung', 'tanggal_lahir' => '2022-07-15', 'jenis_kelamin' => 'P'],
-            ['nama_lengkap' => 'Bima Sakti', 'nama_panggilan' => 'Bima', 'tempat_lahir' => 'Bandung', 'tanggal_lahir' => '2023-01-20', 'jenis_kelamin' => 'L'],
-            ['nama_lengkap' => 'Dina Safitri', 'nama_panggilan' => 'Dina', 'tempat_lahir' => 'Bandung', 'tanggal_lahir' => '2024-02-05', 'jenis_kelamin' => 'P'],
-            ['nama_lengkap' => 'Eko Prasetyo', 'nama_panggilan' => 'Eko', 'tempat_lahir' => 'Bandung', 'tanggal_lahir' => '2022-11-30', 'jenis_kelamin' => 'L'],
-            ['nama_lengkap' => 'Fani Anggraini', 'nama_panggilan' => 'Fani', 'tempat_lahir' => 'Bandung', 'tanggal_lahir' => '2023-05-12', 'jenis_kelamin' => 'P'],
-            ['nama_lengkap' => 'Gilang Ramadhan', 'nama_panggilan' => 'Gilang', 'tempat_lahir' => 'Bandung', 'tanggal_lahir' => '2023-09-18', 'jenis_kelamin' => 'L'],
-            ['nama_lengkap' => 'Hana Maulida', 'nama_panggilan' => 'Hana', 'tempat_lahir' => 'Bandung', 'tanggal_lahir' => '2022-09-25', 'jenis_kelamin' => 'P'],
-            ['nama_lengkap' => 'Irfan Hakim', 'nama_panggilan' => 'Irfan', 'tempat_lahir' => 'Bandung', 'tanggal_lahir' => '2024-01-10', 'jenis_kelamin' => 'L'],
-            ['nama_lengkap' => 'Jihan Aulia', 'nama_panggilan' => 'Jihan', 'tempat_lahir' => 'Bandung', 'tanggal_lahir' => '2023-06-22', 'jenis_kelamin' => 'P'],
-        ];
-        foreach ($childrenData as $i => $cd) {
-            $pos = $posyandus[$i % count($posyandus)];
-            $nik = '320101'.str_pad((string) (1000 + $i), 4, '0', STR_PAD_LEFT).'000'.($i + 1);
-            $child = Child::firstOrCreate(['nik' => $nik], array_merge($cd, [
-                'posyandu_id' => $pos->id,
-                'alamat' => 'Desa Sukamaju RT '.($i + 1).' RW 01',
-                'nomor_kk' => '320101000000000'.($i + 1),
-                'status' => 'active',
-            ]));
-            // attach 2 parents alternately
-            if ($i % 2 == 0) {
-                $child->parents()->syncWithoutDetaching([$parents[0]->id => ['relationship' => 'Ayah', 'is_primary_contact' => false], $parents[1]->id => ['relationship' => 'Ibu', 'is_primary_contact' => true]]);
-            } else {
-                $child->parents()->syncWithoutDetaching([$parents[2]->id => ['relationship' => 'Ayah', 'is_primary_contact' => false], $parents[3]->id => ['relationship' => 'Ibu', 'is_primary_contact' => true]]);
-            }
-            // occasionally add wali
-            if ($i == 2) {
-                $child->parents()->syncWithoutDetaching([$parents[4]->id => ['relationship' => 'Wali', 'is_primary_contact' => false]]);
+        $posyandus = Posyandu::orderBy('kode_posyandu')->get()->keyBy('kode_posyandu');
+
+        $counterLaki = 0;
+        $counterPerempuan = 0;
+        $counterKeluarga = 0;
+        $noUrut = 1;
+
+        foreach (self::JUMLAH_ANAK as $kode => $jumlah) {
+            $posyandu = $posyandus[$kode] ?? null;
+
+            if (! $posyandu) {
+                continue;
             }
 
-            // Dua ibu tambahan agar data kehamilan punya variation yang cukup.
-            if ($i == 8) {
-                $child->parents()->syncWithoutDetaching([$parents[5]->id => ['relationship' => 'Ibu', 'is_primary_contact' => false]]);
+            for ($i = 0; $i < $jumlah; $i++) {
+                $jenisKelamin = $i % 2 === 0 ? 'P' : 'L';
+
+                // Dua anak berbagi satu keluarga agar ada saudara sekandung,
+                // dan tetap terdaftar di posyandu yang sama.
+if ($i % 2 === 0) {
+                    $counterKeluarga++;
+                    $keluarga = $this->namaKeluarga($counterKeluarga);
+                    $ayah = $this->buatOrangTua($keluarga['ayah'], 'L', $counterLaki++);
+                    $ibu = $this->buatOrangTua($keluarga['ibu'], 'P', $counterPerempuan++);
+                }
+
+                $namaAnak = $this->namaAnak($jenisKelamin, $counterLaki, $counterPerempuan);
+                $tanggalLahir = $this->tanggalLahir();
+
+                $anak = Child::create([
+                    'posyandu_id' => $posyandu->id,
+                    'nik' => $this->nik($noUrut++),
+                    'nama_lengkap' => $namaAnak,
+                    'nama_panggilan' => explode(' ', $namaAnak)[0],
+                    'tempat_lahir' => 'Bandung',
+                    'tanggal_lahir' => $tanggalLahir,
+                    'jenis_kelamin' => $jenisKelamin,
+                    'alamat' => 'Desa Sukamaju RT '.(($i % 8) + 1).' RW 0'.(($counterKeluarga % 3) + 1),
+                    'nomor_kk' => '32010100000000'.str_pad((string) $noUrut, 3, '0', STR_PAD_LEFT),
+                    'status' => 'active',
+                ]);
+
+                if ($ayah) {
+                    $anak->parents()->attach($ayah->id, [
+                        'relationship' => 'Ayah',
+                        'is_primary_contact' => false,
+                    ]);
+                }
+
+                if ($ibu) {
+                    $anak->parents()->attach($ibu->id, [
+                        'relationship' => 'Ibu',
+                        'is_primary_contact' => true,
+                    ]);
+                }
             }
-            if ($i == 9) {
-                $child->parents()->syncWithoutDetaching([$parents[6]->id => ['relationship' => 'Ibu', 'is_primary_contact' => false]]);
-            }
+
+            // Keluarga tidak boleh lintas posyandu, jadi reset penanda di
+            // akhir tiap posyandu agar anak berikutnya tidak ikut
+            // memakai keluarga posyandu sebelumnya.
+            unset($ayah, $ibu);
         }
     }
+
+    /** @return array{ayah: string, ibu: string} */
+    private function namaKeluarga(int $index): array
+    {
+        $a = self::NAMA_KELUARGA[$index % count(self::NAMA_KELUARGA)];
+        $b = self::NAMA_KELUARGA[($index * 3 + 1) % count(self::NAMA_KELUARGA)];
+
+        return ['ayah' => $a, 'ibu' => $b];
+    }
+
+    private function buatOrangTua(string $namaKeluarga, string $jenisKelamin, int $index): ParentModel
+    {
+        $namaDepan = $jenisKelamin === 'L'
+            ? self::NAMA_LAKI[$index % count(self::NAMA_LAKI)]
+            : self::NAMA_PEREMPUAN[$index % count(self::NAMA_PEREMPUAN)];
+
+        $tahunLahir = $jenisKelamin === 'L' ? 1985 + ($index % 15) : 1988 + ($index % 13);
+
+        return ParentModel::create([
+            'nik' => $this->nikOrangTua($index, $jenisKelamin),
+            'nama_lengkap' => $namaDepan.' '.$namaKeluarga,
+            'tempat_lahir' => 'Bandung',
+            'tanggal_lahir' => $tahunLahir.'-0'.(($index % 9) + 1).'-1'.($index % 9),
+            'jenis_kelamin' => $jenisKelamin,
+            'alamat' => 'Desa Sukamaju',
+            'nomor_telepon' => '0812'.str_pad((string) (3_000_000 + $index), 7, '0', STR_PAD_LEFT),
+            'pekerjaan' => $jenisKelamin === 'L'
+                ? self::PEKERJAAN_LAKI[$index % count(self::PEKERJAAN_LAKI)]
+                : self::PEKERJAAN_PEREMPUAN[$index % count(self::PEKERJAAN_PEREMPUAN)],
+        ]);
+    }
+
+    private function namaAnak(string $jenisKelamin, int $indexLaki, int $indexPerempuan): string
+    {
+        $namaDepan = $jenisKelamin === 'L'
+            ? self::NAMA_LAKI[$indexLaki % count(self::NAMA_LAKI)]
+            : self::NAMA_PEREMPUAN[$indexPerempuan % count(self::NAMA_PEREMPUAN)];
+
+        $namaKeluarga = self::NAMA_KELUARGA[($indexLaki + $indexPerempuan) % count(self::NAMA_KELUARGA)];
+
+        return $namaDepan.' '.$namaKeluarga;
+    }
+
+    /** Usia anak 3 bulan sampai 5 tahun, tersebar merata. */
+    private function tanggalLahir(): string
+    {
+        $bulan = 3 + random_int(0, 57);
+
+        return now()->subMonths($bulan)->toDateString();
+    }
+
+    private function nik(int $urut): string
+    {
+        return '320101'.str_pad((string) $urut, 4, '0', STR_PAD_LEFT).'000'.($urut % 10);
+    }
+
+/**
+ * NIK 16 digit:pria berakhir angka ganjil, wanita angka genap.
+ * Dipakai juga sebagai penjaga agar tidak ada NIK kembar.
+ */
+private function nikOrangTua(int $index, string $jenisKelamin): string
+{
+$nomor = 32_010_101_010_100_000 + ($index * 2) + ($jenisKelamin === 'L' ? 1 : 2);
+
+return (string) $nomor;
+}
 }

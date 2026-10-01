@@ -69,57 +69,87 @@ class ExaminationSeeder extends Seeder
                 ]));
             }
         }
-        // Schedules
+        // Schedules: dua kegiatan per posyandu, satu terjadwal dan satu selesai.
         foreach (Posyandu::all() as $pos) {
-            Schedule::firstOrCreate(['posyandu_id' => $pos->id, 'title' => 'Posyandu Rutin'], [
-                'date' => now()->addDays(rand(5, 20))->format('Y-m-d'),
-                'start_time' => '08:00',
-                'end_time' => '11:00',
-                'location' => $pos->alamat,
-                'description' => 'Kegiatan Posyandu rutin bulanan',
-                'status' => 'scheduled',
-            ]);
-        }
-        // Immunizations & vitamin
-        $vaccines = ['BCG', 'Polio 0', 'Polio 1', 'Polio 3', 'Polio 4', 'DPT HB 1', 'DPT HB 2', 'DPT HB 3', 'Campak', 'Hepatitis B'];
-        foreach ($children->take(5) as $child) {
-            foreach (array_slice($vaccines, 0, rand(3, 5)) as $v) {
-                Immunization::firstOrCreate(
-                    ['child_id' => $child->id, 'jenis' => 'VAKSIN', 'vaccine_name' => $v],
-                    [
-                        'vaccination_date' => Carbon::parse($child->tanggal_lahir)->addMonths(rand(1, 12))->format('Y-m-d'),
-                        'status' => 'sudah',
-                        'batch' => 'BATCH-'.rand(1000, 9999),
-                        'recorded_by' => $kader->id,
-                    ]
-                );
-            }
-
-            // Vitamin A diberikan setiap 6 bulan, mulai usia 6 bulan.
-            $vitamins = ['Vitamin A Merah', 'Vitamin A Biru', 'Vitamin D'];
-            foreach (array_slice($vitamins, 0, rand(1, 3)) as $v) {
-                Immunization::firstOrCreate(
-                    ['child_id' => $child->id, 'jenis' => 'VITAMIN', 'vaccine_name' => $v],
-                    [
-                        'vaccination_date' => Carbon::parse($child->tanggal_lahir)->addMonths(rand(6, 30))->format('Y-m-d'),
-                        'status' => 'sudah',
-                        'recorded_by' => $kader->id,
-                    ]
-                );
-            }
-        }
-
-        // Vitamin untuk seluruh anak, supaya filter jenis pada modul
-        // imunisasi/vitamin punya data di semua posyandu.
-        foreach ($children->skip(5) as $child) {
-            Immunization::firstOrCreate(
-                ['child_id' => $child->id, 'jenis' => 'VITAMIN', 'vaccine_name' => 'Vitamin A Merah'],
+            Schedule::firstOrCreate(
+                ['posyandu_id' => $pos->id, 'title' => 'Posyandu Rutin Bulanan'],
                 [
-                    'vaccination_date' => Carbon::parse($child->tanggal_lahir)->addMonths(6)->format('Y-m-d'),
-                    'status' => 'sudah',
-                    'recorded_by' => $kader->id,
+                    'date' => now()->addDays(random_int(5, 20))->format('Y-m-d'),
+                    'start_time' => '08:00',
+                    'end_time' => '11:00',
+                    'location' => $pos->alamat,
+                    'description' => 'Penimbangan, pengukuran tinggi, dan pemeriksaan tumbuh kembang.',
+                    'status' => 'scheduled',
                 ]
             );
+
+            Schedule::firstOrCreate(
+                ['posyandu_id' => $pos->id, 'title' => 'Kaderotechnology Imunisasi'],
+                [
+                    'date' => now()->addDays(random_int(21, 40))->format('Y-m-d'),
+                    'start_time' => '09:00',
+                    'end_time' => '12:00',
+                    'location' => $pos->alamat,
+                    'description' => 'Sesi pemberian vaksin dan vitamin sesuai jadwal.',
+                    'status' => 'scheduled',
+                ]
+            );
+
+            Schedule::firstOrCreate(
+                ['posyandu_id' => $pos->id, 'title' => 'Posyandu Rutin Bulanan'],
+                [
+                    'date' => now()->subDays(random_int(10, 25))->format('Y-m-d'),
+                    'start_time' => '08:00',
+                    'end_time' => '11:00',
+                    'location' => $pos->alamat,
+                    'description' => 'Kegiatan Posyandu rutin bulan lalu.',
+                    'status' => 'completed',
+                ]
+            );
+        }
+
+        /**
+         * Imunisasi dan vitamin.
+         *
+         * Setiap anak mendapat 4-7 vaksin dan 1-2 vitamin. Usia anak
+         * menentukan tanggal pemberian sehingga tidak ada vaksin yang
+         * tercatat sebelum anak lahir.
+         */
+        $vaksin = ['BCG', 'Hepatitis B', 'Polio 0', 'Polio 1', 'Polio 2', 'Polio 3', 'Polio 4', 'DPT HB 1', 'DPT HB 2', 'DPT HB 3', 'Campak'];
+        $vitamin = ['Vitamin A Merah', 'Vitamin A Biru', 'Vitamin D'];
+
+        foreach ($children as $child) {
+            $lahir = Carbon::parse($child->tanggal_lahir);
+            $usiaBulan = $lahir->diffInMonths(now());
+
+            foreach (array_slice($vaksin, 0, random_int(4, 7)) as $nama) {
+                // Tanggal pemberian dijaga tetap setelah tanggal lahir.
+                $bulan = random_int(1, max(2, min(12, $usiaBulan)));
+
+                Immunization::firstOrCreate(
+                    ['child_id' => $child->id, 'jenis' => 'VAKSIN', 'vaccine_name' => $nama],
+                    [
+                        'vaccination_date' => $lahir->copy()->addMonths($bulan)->format('Y-m-d'),
+                        'status' => 'sudah',
+                        'batch' => 'BATCH-'.random_int(1000, 9999),
+                        'recorded_by' => $kader->id,
+                    ]
+                );
+            }
+
+            // Vitamin A mulai diberikan sejak usia 6 bulan.
+            if ($usiaBulan >= 6) {
+                foreach (array_slice($vitamin, 0, random_int(1, 2)) as $nama) {
+                    Immunization::firstOrCreate(
+                        ['child_id' => $child->id, 'jenis' => 'VITAMIN', 'vaccine_name' => $nama],
+                        [
+                            'vaccination_date' => $lahir->copy()->addMonths(random_int(6, max(7, min(30, $usiaBulan))))->format('Y-m-d'),
+                            'status' => 'sudah',
+                            'recorded_by' => $kader->id,
+                        ]
+                    );
+                }
+            }
         }
         // Growth standards dummy
         $indicators = ['weight', 'height', 'head_circumference', 'arm_circumference'];
