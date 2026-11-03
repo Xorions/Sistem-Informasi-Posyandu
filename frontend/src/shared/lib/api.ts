@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { CONFIG } from './config'
+import { showToast } from '../components/ui/toast'
 import type {
   ApiMeta,
   AuditLog,
@@ -34,21 +35,71 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+let isHandling401 = false
+
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
-      const url = err.config?.url || ''
+    const status = err.response?.status
+    const url = err.config?.url || ''
 
-      // Jangan putuskan sesi saat aplikasi sendiri sedang memeriksa login.
-      if (!url.includes('/login')) {
-        localStorage.removeItem(CONFIG.TOKEN_KEY)
-        localStorage.removeItem(CONFIG.USER_KEY)
+    if (status === 401) {
+      // Jika request login itu sendiri yang gagal (kredensial salah), jangan logout / redirect
+      if (url.includes('/login')) {
+        return Promise.reject(err)
+      }
+
+      localStorage.removeItem(CONFIG.TOKEN_KEY)
+      localStorage.removeItem(CONFIG.USER_KEY)
+
+      if (!isHandling401) {
+        isHandling401 = true
+        const currentPath = window.location.pathname + window.location.search
+
+        if (currentPath && currentPath !== '/login') {
+          sessionStorage.setItem('redirect_after_login', currentPath)
+        }
+
+        sessionStorage.setItem('session_expired_message', 'Sesi Anda berakhir. Silakan masuk kembali.')
+        showToast('Sesi Anda berakhir. Silakan masuk kembali.', 'error')
 
         if (window.location.pathname !== '/login') {
           window.location.href = '/login'
         }
+
+        setTimeout(() => {
+          isHandling401 = false
+        }, 3000)
       }
+
+      return Promise.reject(err)
+    }
+
+    if (status === 403) {
+      showToast('Anda tidak memiliki akses ke data ini.', 'error')
+      return Promise.reject(err)
+    }
+
+    if (status === 429) {
+      const retryAfter =
+        err.response?.headers?.['retry-after'] ||
+        err.response?.headers?.['Retry-After']
+      const msg = retryAfter
+        ? `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.`
+        : 'Terlalu banyak percobaan. Coba lagi dalam beberapa saat.'
+      showToast(msg, 'error')
+      return Promise.reject(err)
+    }
+
+    if (status === 422) {
+      // Diteruskan ke form untuk menampilkan validasi per-field
+      return Promise.reject(err)
+    }
+
+    // 5xx atau network error
+    if (!err.response || status >= 500) {
+      showToast('Data tidak dapat dimuat. Silakan coba kembali.', 'error')
+      return Promise.reject(err)
     }
 
     return Promise.reject(err)
@@ -64,26 +115,154 @@ const unwrapWithMeta = <T>(res: Envelope<T>): { data: T; meta?: ApiMeta } => ({
   meta: res.data.meta,
 })
 
+function isRawServerError(text?: string | null): boolean {
+  if (!text || typeof text !== 'string') return false
+  return /sqlstate|syntax error|stack trace|trace:|exception|fatal error|call to undefined|uncaught error|at .*\(.*:\d+\)|vendor\/laravel|app\/http|database\/migrations/i.test(text)
+}
+
 /**
  * Ambil pesan error yang layak ditampilkan ke pengguna.
  * Backend memakai envelope { success, message, errors }.
  */
-export function apiErrorMessage(err: unknown, fallback = 'Terjadi kesalahan. Silakan coba kembali.'): string {
+export function apiErrorMessage(err: unknown, fallback = 'Data tidak dapat dimuat. Silakan coba kembali.'): string {
   const e = err as {
-    response?: { data?: { message?: string; errors?: Record<string, string[] | string> } }
+    response?: {
+      status?: number
+      headers?: Record<string, string>
+      data?: { message?: string; errors?: Record<string, string[] | string> }
+    }
     message?: string
+  }
+
+  const status = e?.response?.status
+
+  if (status === 429) {
+    const retryAfter = e?.response?.headers?.['retry-after'] || e?.response?.headers?.['Retry-After']
+    if (retryAfter) {
+      return `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.`
+    }
+    return 'Terlalu banyak percobaan. Coba lagi dalam beberapa saat.'
+  }
+
+  if (status === 403) {
+    return 'Anda tidak memiliki akses ke data ini.'
+  }
+
+  if (status === 401) {
+    return 'Sesi Anda berakhir. Silakan masuk kembali.'
+  }
+
+  if (!e?.response || (status && status >= 500)) {
+    return fallback
   }
 
   const errors = e?.response?.data?.errors
 
-  if (errors) {
+  if (errors && typeof errors === 'object') {
     const first = Object.values(errors)[0]
-
-    if (Array.isArray(first)) return first[0]
-    if (typeof first === 'string') return first
+    const errText = Array.isArray(first) && first.length > 0 ? String(first[0]) : (typeof first === 'string' ? first : '')
+    if (errText && !isRawServerError(errText)) return errText
   }
 
-  return e?.response?.data?.message || e?.message || fallback
+  const msg = e?.response?.data?.message
+  if (typeof msg === 'string' && msg.trim()) {
+    if (isRawServerError(msg)) {
+      return fallback
+    }
+    return msg
+  }
+
+  return fallback
+}
+
+/**
+ * Parsing validasi error per field dari response 422.
+ */
+export function apiValidationErrors(err: unknown): Record<string, string> {
+  const e = err as {
+    response?: {
+      status?: number
+      data?: { errors?: Record<string, string[] | string> }
+    }
+  }
+
+  const errors = e?.response?.data?.errors
+  if (!errors || typeof errors !== 'object') return {}
+
+  const result: Record<string, string> = {}
+  for (const [key, val] of Object.entries(errors)) {
+    if (Array.isArray(val) && val.length > 0) {
+      result[key] = String(val[0])
+    } else if (typeof val === 'string') {
+      result[key] = val
+    }
+  }
+
+  return result
+}
+
+/**
+ * Ekstrak pesan error dari response yang dibungkus Blob (mis. Axios responseType: 'blob').
+ * Menangani error 403, 422, 429, dan 500 dengan parsing payload JSON di dalam Blob.
+ */
+export async function extractBlobErrorMessage(err: unknown, fallback = 'Gagal memproses berkas ekspor.'): Promise<string> {
+  const e = err as {
+    response?: {
+      status?: number
+      headers?: Record<string, string>
+      data?: Blob | { message?: string }
+    }
+    message?: string
+  }
+
+  const status = e?.response?.status
+
+  if (status && status >= 500) {
+    return 'Terjadi kesalahan pada server saat mengekspor data. Silakan coba beberapa saat lagi.'
+  }
+
+  if (e?.response?.data instanceof Blob) {
+    try {
+      const text = await e.response.data.text()
+      const json = JSON.parse(text)
+      if (json.message && typeof json.message === 'string' && !isRawServerError(json.message)) return json.message
+      if (json.errors && typeof json.errors === 'object') {
+        const first = Object.values(json.errors)[0]
+        const errText = Array.isArray(first) && first.length > 0 ? String(first[0]) : (typeof first === 'string' ? first : '')
+        if (errText && !isRawServerError(errText)) return errText
+      }
+      if (json.error && typeof json.error === 'string' && !isRawServerError(json.error)) return json.error
+    } catch {
+      // bukan format JSON, fallback ke status code
+    }
+  }
+
+  if (status === 403) {
+    return 'Akses ditolak: Anda tidak memiliki izin untuk mengekspor data ini (403 Forbidden).'
+  }
+
+  if (status === 422) {
+    return 'Parameter filter laporan tidak valid untuk ekspor ini (422 Unprocessable).'
+  }
+
+  if (status === 429) {
+    const retryAfter = e?.response?.headers?.['retry-after'] || e?.response?.headers?.['Retry-After']
+    if (retryAfter) {
+      return `Terlalu banyak permintaan ekspor. Silakan tunggu ${retryAfter} detik (429 Too Many Requests).`
+    }
+    return 'Terlalu banyak permintaan ekspor. Silakan tunggu beberapa saat (429 Too Many Requests).'
+  }
+
+  if (typeof e?.response?.data === 'object' && e?.response?.data !== null && 'message' in e.response.data) {
+    const msg = String(e.response.data.message)
+    if (!isRawServerError(msg)) return msg
+  }
+
+  if (e?.message && !e.message.includes('status code') && !isRawServerError(e.message)) {
+    return e.message
+  }
+
+  return fallback
 }
 
 /**
@@ -121,6 +300,7 @@ export const apiChildren = {
 export const apiParents = {
   list: (params?: Record<string, unknown>) =>
     api.get('/parents', { params }).then(unwrapWithMeta<OrangTua[]>),
+  get: (id: number | string) => api.get(`/parents/${id}`).then(unwrap<OrangTua>),
   create: (body: unknown) => api.post('/parents', body).then(unwrap<OrangTua>),
   update: (id: number | string, body: unknown) => api.put(`/parents/${id}`, body).then(unwrap<OrangTua>),
   remove: (id: number | string) => api.delete(`/parents/${id}`).then(unwrap<null>),
@@ -129,6 +309,7 @@ export const apiParents = {
 export const apiPosyandu = {
   list: (params?: Record<string, unknown>) =>
     api.get('/posyandu', { params }).then(unwrapWithMeta<Posyandu[]>),
+  get: (id: number | string) => api.get(`/posyandu/${id}`).then(unwrap<Posyandu>),
   create: (body: unknown) => api.post('/posyandu', body).then(unwrap<Posyandu>),
   update: (id: number | string, body: unknown) => api.put(`/posyandu/${id}`, body).then(unwrap<Posyandu>),
   remove: (id: number | string) => api.delete(`/posyandu/${id}`).then(unwrap<null>),
@@ -136,6 +317,7 @@ export const apiPosyandu = {
 
 export const apiKader = {
   list: (params?: Record<string, unknown>) => api.get('/kader', { params }).then(unwrapWithMeta<Kader[]>),
+  get: (id: number | string) => api.get(`/kader/${id}`).then(unwrap<Kader>),
   create: (body: unknown) => api.post('/kader', body).then(unwrap<Kader>),
   update: (id: number | string, body: unknown) => api.put(`/kader/${id}`, body).then(unwrap<Kader>),
   remove: (id: number | string) => api.delete(`/kader/${id}`).then(unwrap<null>),

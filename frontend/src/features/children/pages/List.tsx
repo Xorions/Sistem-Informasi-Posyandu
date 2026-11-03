@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from "@/shared/lib/api"
+import { api, apiErrorMessage } from "@/shared/lib/api"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge, StatusBadge } from "@/shared/components/ui/badge"
 import { ConfirmDeleteModal } from "@/shared/components/ui/modal"
@@ -33,8 +33,8 @@ export default function ChildrenList() {
       const res = await api.get('/children', { params: { search: debounced || undefined, posyandu_id: posyanduId || undefined, page, per_page: perPage } })
       setData(res.data.data)
       setMeta(res.data.meta)
-    } catch (err:any) {
-      toast.show(err.response?.data?.message || 'Data tidak dapat dimuat. Silakan coba kembali.', 'error')
+    } catch (err: any) {
+      toast.show(apiErrorMessage(err, 'Data tidak dapat dimuat. Silakan coba kembali.'), 'error')
     } finally { setLoading(false) }
   }
 
@@ -49,7 +49,7 @@ export default function ChildrenList() {
       toast.show('Data anak berhasil dihapus.')
       setDeleteId(null)
       fetch()
-    } catch (e:any) { toast.show(e.response?.data?.message || 'Terjadi kesalahan.', 'error') }
+    } catch (e: any) { toast.show(apiErrorMessage(e, 'Gagal menghapus data anak.'), 'error') }
     finally { setDeleting(false) }
   }
 
@@ -60,7 +60,9 @@ export default function ChildrenList() {
           <h1 className="text-2xl font-bold text-slate-900">Data Anak</h1>
           <p className="text-sm text-slate-500">Kelola data anak per Posyandu • Terisolasi sesuai akses</p>
         </div>
-        <Link to="/children/create" className="px-5 py-2.5 rounded-xl bg-teal-600 text-white font-medium hover:bg-teal-700">+ Tambah Anak</Link>
+        {canManage && (
+          <Link to="/children/create" className="px-5 py-2.5 rounded-xl bg-teal-600 text-white font-medium hover:bg-teal-700">+ Tambah Anak</Link>
+        )}
       </div>
 
       <Card>
@@ -81,7 +83,9 @@ export default function ChildrenList() {
          data.length===0 ? (
           <div className="p-10 text-center">
             <p className="text-slate-600 font-medium">Belum ada data anak.</p>
-            <Link to="/children/create" className="inline-block mt-3 px-4 py-2 rounded-xl bg-teal-600 text-white text-sm">+ Tambah Anak</Link>
+            {canManage && (
+              <Link to="/children/create" className="inline-block mt-3 px-4 py-2 rounded-xl bg-teal-600 text-white text-sm">+ Tambah Anak</Link>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">

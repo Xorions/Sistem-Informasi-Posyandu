@@ -9,6 +9,7 @@ use App\Http\Resources\IbuHamilResource;
 use App\Http\Resources\PemeriksaanBumilResource;
 use App\Models\IbuHamil;
 use App\Services\AuditLogService;
+use App\Support\SqlHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -43,7 +44,8 @@ class IbuHamilController extends Controller
         }
 
         if ($search = $request->query('search')) {
-            $q->whereHas('parent', fn ($p) => $p->where('nama_lengkap', 'ilike', "%$search%"));
+            $escaped = SqlHelper::escapeLike($search);
+            $q->whereHas('parent', fn ($p) => $p->where('nama_lengkap', 'ilike', "%{$escaped}%"));
         }
 
         $perPage = min((int) $request->query('per_page', 10), 100);
@@ -121,10 +123,11 @@ class IbuHamilController extends Controller
     {
         $this->authorize('delete', $ibuHamil);
 
+        $id = $ibuHamil->id;
         $old = $ibuHamil->only(['posyandu_id', 'tanggal_perkiraan_lahir']);
         $ibuHamil->delete();
 
-        AuditLogService::log('DELETE', 'ibu_hamil', $ibuHamil->id, $old, null);
+        AuditLogService::log('DELETE', 'ibu_hamil', $id, $old, null);
 
         return response()->json(['success' => true, 'message' => 'Data ibu hamil dihapus']);
     }

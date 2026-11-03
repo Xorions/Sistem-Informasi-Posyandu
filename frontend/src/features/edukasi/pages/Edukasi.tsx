@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { apiEducations, apiErrorMessage } from '@/shared/lib/api'
+import { apiEducations, apiErrorMessage, apiValidationErrors } from '@/shared/lib/api'
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/card'
 import { StatusBadge } from '@/shared/components/ui/badge'
 import { Button, EmptyState, ErrorState, Field, Input, Select, Spinner, Textarea } from '@/shared/components/ui/field'
@@ -9,6 +9,7 @@ import { useDebounce } from '@/shared/hooks/useDebounce'
 import { useAuth } from '@/features/auth/AuthContext'
 import { ROUTES } from '@/app/routes'
 import { can } from '@/shared/lib/rbac'
+import { stripHtml } from '@/shared/lib/utils'
 import type { Education, EducationCategory, EducationStatus } from '@/shared/types'
 
 type FormState = {
@@ -47,6 +48,7 @@ export default function EdukasiPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [deleting, setDeleting] = useState<Education | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -93,6 +95,7 @@ export default function EdukasiPage() {
     setEditId(null)
     setForm({ ...EMPTY_FORM, category_id: categoryFilter })
     setFormError(null)
+    setErrors({})
     setOpen(true)
   }
 
@@ -107,6 +110,7 @@ export default function EdukasiPage() {
       status: e.status,
     })
     setFormError(null)
+    setErrors({})
     setOpen(true)
   }
 
@@ -114,13 +118,14 @@ export default function EdukasiPage() {
     ev.preventDefault()
     setSaving(true)
     setFormError(null)
+    setErrors({})
 
     const payload = {
       category_id: Number(form.category_id),
-      title: form.title,
-      content: form.content,
-      source: form.source || null,
-      source_url: form.source_url || null,
+      title: form.title.trim(),
+      content: form.content.trim(),
+      source: form.source ? form.source.trim() : null,
+      source_url: form.source_url ? form.source_url.trim() : null,
       status: form.status,
     }
 
@@ -136,6 +141,8 @@ export default function EdukasiPage() {
       setOpen(false)
       await load()
     } catch (err) {
+      const fieldErrors = apiValidationErrors(err)
+      setErrors(fieldErrors)
       setFormError(apiErrorMessage(err))
     } finally {
       setSaving(false)
@@ -228,16 +235,15 @@ export default function EdukasiPage() {
                       {e.author?.name && <span className="text-xs text-slate-500">{e.author.name}</span>}
                     </div>
 
-                    <div
-                      className="text-xs text-slate-600 mt-3 line-clamp-3 prose max-w-none"
-                      dangerouslySetInnerHTML={{ __html: e.content?.substring(0, 150) }}
-                    />
+                    <p className="text-xs text-slate-600 mt-3 line-clamp-3">
+                      {stripHtml(e.content)}
+                    </p>
 
                     <div className="flex gap-1 mt-4 flex-wrap">
                       <a
                         href={ROUTES.edukasiDetail(e.slug)}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="px-2.5 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
                       >
                         Lihat
@@ -279,11 +285,15 @@ export default function EdukasiPage() {
               {formError && <p className="text-sm text-red-600 bg-red-50 rounded-xl px-3 py-2">{formError}</p>}
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Kategori" required>
+                <Field label="Kategori" required error={errors.category_id}>
                   <Select
                     required
+                    hasError={!!errors.category_id}
                     value={form.category_id}
-                    onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, category_id: e.target.value })
+                      if (errors.category_id) setErrors({ ...errors, category_id: '' })
+                    }}
                   >
                     <option value="">-- Pilih kategori --</option>
                     {categories.map((c) => (
@@ -294,10 +304,14 @@ export default function EdukasiPage() {
                   </Select>
                 </Field>
 
-                <Field label="Status" required>
+                <Field label="Status" required error={errors.status}>
                   <Select
+                    hasError={!!errors.status}
                     value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value as EducationStatus })}
+                    onChange={(e) => {
+                      setForm({ ...form, status: e.target.value as EducationStatus })
+                      if (errors.status) setErrors({ ...errors, status: '' })
+                    }}
                   >
                     <option value="draft">Draft</option>
                     <option value="published">Published</option>
@@ -306,36 +320,58 @@ export default function EdukasiPage() {
                 </Field>
               </div>
 
-              <Field label="Judul" required>
-                <Input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              <Field label="Judul" required error={errors.title}>
+                <Input
+                  required
+                  hasError={!!errors.title}
+                  value={form.title}
+                  onChange={(e) => {
+                    setForm({ ...form, title: e.target.value })
+                    if (errors.title) setErrors({ ...errors, title: '' })
+                  }}
+                />
               </Field>
 
               <Field
                 label="Konten"
                 required
                 hint="Mendukung tag HTML dasar: h2, p, ul, li, strong, em, a. Backend menyaring script."
+                error={errors.content}
               >
                 <Textarea
                   required
                   rows={8}
+                  hasError={!!errors.content}
                   value={form.content}
-                  onChange={(e) => setForm({ ...form, content: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, content: e.target.value })
+                    if (errors.content) setErrors({ ...errors, content: '' })
+                  }}
                   className="font-mono text-sm"
                 />
               </Field>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Sumber">
+                <Field label="Sumber" error={errors.source}>
                   <Input
+                    hasError={!!errors.source}
                     value={form.source}
-                    onChange={(e) => setForm({ ...form, source: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, source: e.target.value })
+                      if (errors.source) setErrors({ ...errors, source: '' })
+                    }}
                     placeholder="Kementerian Kesehatan RI"
                   />
                 </Field>
-                <Field label="URL Sumber">
+                <Field label="URL Sumber" error={errors.source_url}>
                   <Input
+                    type="url"
+                    hasError={!!errors.source_url}
                     value={form.source_url}
-                    onChange={(e) => setForm({ ...form, source_url: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, source_url: e.target.value })
+                      if (errors.source_url) setErrors({ ...errors, source_url: '' })
+                    }}
                     placeholder="https://..."
                   />
                 </Field>

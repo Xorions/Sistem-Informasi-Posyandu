@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { apiChildren, apiErrorMessage, apiImunisasi, apiPosyandu } from '@/shared/lib/api'
+import { apiChildren, apiErrorMessage, apiImunisasi, apiPosyandu, apiValidationErrors } from '@/shared/lib/api'
 import { ROUTES } from '@/app/routes'
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/card'
 import { Badge, StatusBadge } from '@/shared/components/ui/badge'
@@ -49,7 +49,8 @@ function toForm(i: Imunisasi): FormState {
 
 export default function ImmunizationsPage() {
   const toast = useToast()
-  const { isOrangTua } = useAuth()
+  const { role } = useAuth()
+  const canManage = can(role, 'manage-imunisasi')
 
   const [rows, setRows] = useState<Imunisasi[]>([])
   const [children, setChildren] = useState<Child[]>([])
@@ -77,6 +78,7 @@ export default function ImmunizationsPage() {
   })
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [deleting, setDeleting] = useState<Imunisasi | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -135,6 +137,7 @@ export default function ImmunizationsPage() {
       notes: '',
     })
     setFormError(null)
+    setErrors({})
     setOpen(true)
   }
 
@@ -142,21 +145,42 @@ export default function ImmunizationsPage() {
     setEditing(i)
     setForm(toForm(i))
     setFormError(null)
+    setErrors({})
     setOpen(true)
   }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSaving(true)
     setFormError(null)
+    setErrors({})
+
+    const errs: Record<string, string> = {}
+    if (!editing && !form.child_id) {
+      errs.child_id = 'Anak wajib dipilih.'
+    }
+    if (!form.vaccine_name) {
+      errs.vaccine_name = 'Nama vaksin/vitamin wajib dipilih.'
+    }
+    const today = new Date().toISOString().substring(0, 10)
+    if (form.vaccination_date && form.vaccination_date > today) {
+      errs.vaccination_date = 'Tanggal pemberian tidak boleh di masa depan.'
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs)
+      setFormError('Mohon perbaiki kesalahan pada formulir.')
+      return
+    }
+
+    setSaving(true)
 
     const payload = {
       jenis: form.jenis,
       vaccine_name: form.vaccine_name,
-      batch: form.batch || null,
+      batch: form.batch ? form.batch.trim() : null,
       vaccination_date: form.vaccination_date || null,
       status: form.status,
-      notes: form.notes || null,
+      notes: form.notes ? form.notes.trim() : null,
     }
 
     try {
@@ -169,8 +193,11 @@ export default function ImmunizationsPage() {
       }
 
       setOpen(false)
+      setErrors({})
       await load()
     } catch (err) {
+      const fieldErrors = apiValidationErrors(err)
+      setErrors(fieldErrors)
       setFormError(apiErrorMessage(err))
     } finally {
       setSaving(false)
@@ -196,8 +223,10 @@ export default function ImmunizationsPage() {
 
   const set =
     (key: keyof FormState) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       setForm((f) => ({ ...f, [key]: e.target.value }))
+      if (errors[key]) setErrors((prev) => ({ ...prev, [key]: '' }))
+    }
 
   const filterAnak = children.filter((c) => !posyanduFilter || String(c.posyandu_id) === posyanduFilter)
 
@@ -208,7 +237,7 @@ export default function ImmunizationsPage() {
           title="Imunisasi dan Vitamin"
           subtitle="Riwayat pemberian vaksin serta vitamin pada anak, dipisahkan agar mudah dipantau."
           action={
-            can('KADER', 'manage-imunisasi') ? (
+            canManage ? (
               <Button onClick={openCreate}>+ Catat Pemberian</Button>
             ) : (
               <span className="text-xs text-slate-500">Mode lihat saja</span>
@@ -280,7 +309,7 @@ export default function ImmunizationsPage() {
                     <th className="py-3 pr-3 font-semibold">Batch</th>
                     <th className="py-3 pr-3 font-semibold">Tanggal</th>
                     <th className="py-3 pr-3 font-semibold">Status</th>
-                    {!isOrangTua && can('KADER', 'manage-imunisasi') && (
+                    {canManage && (
                       <th className="py-3 font-semibold text-right">Aksi</th>
                     )}
                   </tr>
@@ -309,7 +338,7 @@ export default function ImmunizationsPage() {
                       <td className="py-3 pr-3">
                         <StatusBadge status={i.status} />
                       </td>
-                      {can('KADER', 'manage-imunisasi') && !isOrangTua && (
+                      {canManage && (
                         <td className="py-3 text-right space-x-2 whitespace-nowrap">
                           <button onClick={() => openEdit(i)} className="text-teal-600 hover:text-teal-800 text-xs font-medium">
                             Ubah
@@ -350,7 +379,7 @@ export default function ImmunizationsPage() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white">
               <h3 className="font-bold text-slate-800">{editing ? 'Ubah Data Pemberian' : 'Catat Pemberian'}</h3>
               <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-700">
-                Ã¢Å“â€¢
+                ✕
               </button>
             </div>
 
@@ -359,8 +388,13 @@ export default function ImmunizationsPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 {!editing && (
-                  <Field label="Anak" required>
-                    <Select value={form.child_id} onChange={set('child_id')} required>
+                  <Field label="Anak" required error={errors.child_id}>
+                    <Select
+                      value={form.child_id}
+                      onChange={set('child_id')}
+                      hasError={!!errors.child_id}
+                      required
+                    >
                       <option value="">-- Pilih anak --</option>
                       {filterAnak.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -371,12 +405,14 @@ export default function ImmunizationsPage() {
                   </Field>
                 )}
 
-                <Field label="Jenis" required>
+                <Field label="Jenis" required error={errors.jenis}>
                   <Select
                     value={form.jenis}
+                    hasError={!!errors.jenis}
                     onChange={(e) => {
                       const jenis = e.target.value as JenisPemberian
                       setForm((f) => ({ ...f, jenis, vaccine_name: '' }))
+                      if (errors.jenis) setErrors((prev) => ({ ...prev, jenis: '' }))
                     }}
                   >
                     {JENIS_LIST.map((j) => (
@@ -387,8 +423,13 @@ export default function ImmunizationsPage() {
                   </Select>
                 </Field>
 
-                <Field label="Nama" required>
-                  <Select value={form.vaccine_name} onChange={set('vaccine_name')} required>
+                <Field label="Nama" required error={errors.vaccine_name}>
+                  <Select
+                    value={form.vaccine_name}
+                    onChange={set('vaccine_name')}
+                    hasError={!!errors.vaccine_name}
+                    required
+                  >
                     <option value="">-- Pilih --</option>
                     {namaOptions.map((n) => (
                       <option key={n} value={n}>
@@ -398,21 +439,32 @@ export default function ImmunizationsPage() {
                   </Select>
                 </Field>
 
-                <Field label="Tanggal Pemberian">
+                <Field label="Tanggal Pemberian" error={errors.vaccination_date}>
                   <Input
                     type="date"
                     value={form.vaccination_date}
                     onChange={set('vaccination_date')}
+                    hasError={!!errors.vaccination_date}
                     max={new Date().toISOString().slice(0, 10)}
                   />
                 </Field>
 
-                <Field label="Nomor Batch" hint="Umumnya ada pada kemasan vaksin">
-                  <Input value={form.batch} onChange={set('batch')} maxLength={50} />
+                <Field label="Nomor Batch" hint="Umumnya ada pada kemasan vaksin" error={errors.batch}>
+                  <Input
+                    value={form.batch}
+                    onChange={set('batch')}
+                    hasError={!!errors.batch}
+                    maxLength={50}
+                  />
                 </Field>
 
-                <Field label="Status" required>
-                  <Select value={form.status} onChange={set('status')} required>
+                <Field label="Status" required error={errors.status}>
+                  <Select
+                    value={form.status}
+                    onChange={set('status')}
+                    hasError={!!errors.status}
+                    required
+                  >
                     <option value="sudah">Sudah</option>
                     <option value="belum">Belum</option>
                     <option value="terjadwal">Terjadwal</option>
@@ -420,8 +472,13 @@ export default function ImmunizationsPage() {
                 </Field>
               </div>
 
-              <Field label="Keterangan">
-                <Textarea rows={2} value={form.notes} onChange={set('notes')} />
+              <Field label="Keterangan" error={errors.notes}>
+                <Textarea
+                  rows={2}
+                  value={form.notes}
+                  onChange={set('notes')}
+                  hasError={!!errors.notes}
+                />
               </Field>
 
               <div className="flex justify-end gap-2 pt-2">

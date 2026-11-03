@@ -19,8 +19,8 @@ class UpdateKaderRequest extends FormRequest
             'posyandu_id' => 'sometimes|exists:posyandu,id',
             'user_id' => 'nullable|exists:users,id',
             'nama_kader' => 'sometimes|string|max:255',
-            'nik_kader' => 'nullable|string|max:20|unique:kader,nik_kader,'.$id,
-            'no_hp' => 'nullable|string|max:20',
+            'nik_kader' => 'sometimes|nullable|digits:16|unique:kader,nik_kader,'.$id,
+            'no_hp' => ['sometimes', 'nullable', 'string', 'regex:/^(\+62|62|0)8[1-9][0-9]{6,11}$/'],
             'jabatan' => 'nullable|string|max:100',
             'pendidikan' => 'nullable|string|max:50',
             'alamat' => 'nullable|string',
@@ -34,7 +34,8 @@ class UpdateKaderRequest extends FormRequest
         return [
             'nama_kader.required' => 'Nama kader wajib diisi.',
             'nik_kader.unique' => 'NIK kader sudah terdaftar.',
-            'nik_kader.max' => 'NIK maksimal 20 karakter.',
+            'nik_kader.digits' => 'NIK kader harus berjumlah 16 digit angka.',
+            'no_hp.regex' => 'Format nomor HP tidak valid (contoh: 081234567890).',
             'tanggal_mulai_tugas.before_or_equal' => 'Tanggal mulai tugas tidak boleh di masa depan.',
         ];
     }

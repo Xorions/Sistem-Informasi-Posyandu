@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreExaminationRequest;
+use App\Http\Requests\UpdateExaminationRequest;
 use App\Http\Resources\ExaminationResource;
 use App\Models\Child;
 use App\Models\Examination;
@@ -84,18 +85,9 @@ class ExaminationController extends Controller
         return response()->json(['success' => true, 'data' => new ExaminationResource($examination)]);
     }
 
-    public function update(Request $request, Examination $examination)
+    public function update(UpdateExaminationRequest $request, Examination $examination)
     {
         Gate::authorize('update', $examination);
-        $request->validate([
-            'examination_date' => 'sometimes|date|before_or_equal:today',
-            'notes' => 'nullable|string',
-            'weight' => 'nullable|numeric|min:0|max:100',
-            'height' => 'nullable|numeric|min:0|max:250',
-            'length' => 'nullable|numeric|min:0|max:250',
-            'head_circumference' => 'nullable|numeric|min:0|max:100',
-            'arm_circumference' => 'nullable|numeric|min:0|max:50',
-        ]);
 
         return DB::transaction(function () use ($request, $examination) {
             $old = $examination->load('growthRecord')->toArray();

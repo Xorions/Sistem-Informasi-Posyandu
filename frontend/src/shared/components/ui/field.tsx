@@ -17,32 +17,77 @@ export function Field({ label, hint, error, required, className, children }: Fie
       )}
       <div className="mt-1">{children}</div>
       {hint && !error && <p className="text-[11px] text-slate-500 mt-1">{hint}</p>}
-      {error && <p className="text-[11px] text-red-600 mt-1">{error}</p>}
+      {error && <p className="text-[11px] text-red-600 font-medium mt-1">{error}</p>}
     </div>
   )
 }
 
-export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
-  ({ className, ...props }, ref) => <input ref={ref} className={cn(baseField, className)} {...props} />
+export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
+  hasError?: boolean
+  invalid?: boolean
+}
+
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ className, hasError, invalid, ...props }, ref) => (
+    <input
+      ref={ref}
+      className={cn(
+        baseField,
+        (hasError || invalid) && 'border-red-400 focus:ring-red-500 focus:border-red-500 bg-red-50/30',
+        className
+      )}
+      {...props}
+    />
+  )
 )
 Input.displayName = 'Input'
 
-export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
-  ({ className, children, ...props }, ref) => (
-    <select ref={ref} className={cn(baseField, 'pr-8', className)} {...props}>
+export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
+  hasError?: boolean
+  invalid?: boolean
+}
+
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(
+  ({ className, children, hasError, invalid, ...props }, ref) => (
+    <select
+      ref={ref}
+      className={cn(
+        baseField,
+        'pr-8',
+        (hasError || invalid) && 'border-red-400 focus:ring-red-500 focus:border-red-500 bg-red-50/30',
+        className
+      )}
+      {...props}
+    >
       {children}
     </select>
   )
 )
 Select.displayName = 'Select'
 
-export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  ({ className, ...props }, ref) => <textarea ref={ref} className={cn(baseField, 'resize-y', className)} {...props} />
+export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  hasError?: boolean
+  invalid?: boolean
+}
+
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ className, hasError, invalid, ...props }, ref) => (
+    <textarea
+      ref={ref}
+      className={cn(
+        baseField,
+        'resize-y',
+        (hasError || invalid) && 'border-red-400 focus:ring-red-500 focus:border-red-500 bg-red-50/30',
+        className
+      )}
+      {...props}
+    />
+  )
 )
 Textarea.displayName = 'Textarea'
 
 type ButtonProps = {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline'
   size?: 'sm' | 'md'
   loading?: boolean
   className?: string
@@ -52,6 +97,7 @@ type ButtonProps = {
 const variants: Record<string, string> = {
   primary: 'bg-teal-600 text-white hover:bg-teal-700 disabled:bg-teal-600/50',
   secondary: 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50',
+  outline: 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50',
   ghost: 'text-slate-600 hover:bg-slate-100',
   danger: 'bg-red-50 border border-red-200 text-red-700 hover:bg-red-100',
 }
@@ -115,6 +161,27 @@ export function ErrorState({ message = 'Data tidak dapat dimuat. Silakan coba ke
           Coba Lagi
         </Button>
       )}
+    </div>
+  )
+}
+
+export function AccessDeniedState({
+  title = 'Akses ditolak',
+  message = 'Anda tidak memiliki akses ke data atau halaman ini.',
+  action,
+}: {
+  title?: string
+  message?: string
+  action?: ReactNode
+}) {
+  return (
+    <div className="py-12 px-6 text-center">
+      <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 text-xl font-bold">
+        !
+      </div>
+      <p className="mt-3 font-medium text-slate-800">{title}</p>
+      <p className="mt-1 text-sm text-slate-500">{message}</p>
+      {action && <div className="mt-4">{action}</div>}
     </div>
   )
 }

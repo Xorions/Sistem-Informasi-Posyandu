@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiErrorMessage, apiIbuHamil, apiParents, apiPosyandu } from '@/shared/lib/api'
+import { apiErrorMessage, apiIbuHamil, apiParents, apiPosyandu, apiValidationErrors } from '@/shared/lib/api'
 import { ROUTES } from '@/app/routes'
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/card'
 import { StatusBadge } from '@/shared/components/ui/badge'
@@ -9,6 +9,7 @@ import { ConfirmDeleteModal } from '@/shared/components/ui/modal'
 import { useToast } from '@/shared/components/ui/toast'
 import { can } from '@/shared/lib/rbac'
 import { useAuth } from '@/features/auth/AuthContext'
+import { parseNumeric } from '@/shared/lib/utils'
 import type { IbuHamil, OrangTua, Posyandu } from '@/shared/types'
 
 type FormState = {
@@ -60,7 +61,8 @@ function toForm(i: IbuHamil): FormState {
 export default function IbuHamilPage() {
   const toast = useToast()
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
+  const { role, isAdmin } = useAuth()
+  const canManage = can(role, 'manage-ibu-hamil')
 
   const [rows, setRows] = useState<IbuHamil[]>([])
   const [posyandus, setPosyandus] = useState<Posyandu[]>([])
@@ -78,6 +80,7 @@ export default function IbuHamilPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [deleting, setDeleting] = useState<IbuHamil | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -124,6 +127,7 @@ export default function IbuHamilPage() {
     setEditing(null)
     setForm({ ...EMPTY_FORM, posyandu_id: posyanduFilter || String(posyandus[0]?.id ?? '') })
     setFormError(null)
+    setErrors({})
     setOpen(true)
   }
 
@@ -131,26 +135,76 @@ export default function IbuHamilPage() {
     setEditing(i)
     setForm(toForm(i))
     setFormError(null)
+    setErrors({})
     setOpen(true)
   }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSaving(true)
     setFormError(null)
+    setErrors({})
 
-    const num = (v: string) => (v === '' ? null : Number(v))
+    const errs: Record<string, string> = {}
+    if (!editing && !form.parent_id) {
+      errs.parent_id = 'Orang tua wajib dipilih.'
+    }
+    if (!form.posyandu_id) {
+      errs.posyandu_id = 'Posyandu wajib dipilih.'
+    }
+
+    const today = new Date().toISOString().substring(0, 10)
+    if (!form.hpht && !form.tanggal_perkiraan_lahir) {
+      errs.hpht = 'Isi salah satu dari HPHT atau perkiraan hari lahir.'
+    }
+    if (form.hpht && form.hpht > today) {
+      errs.hpht = 'HPHT tidak boleh di masa depan.'
+    }
+    if (form.tanggal_perkiraan_lahir && form.tanggal_perkiraan_lahir <= today) {
+      errs.tanggal_perkiraan_lahir = 'Perkiraan hari lahir harus di masa depan.'
+    }
+    if (form.tinggi_funds) {
+      const tf = Number(form.tinggi_funds)
+      if (isNaN(tf) || tf < 10 || tf > 45) {
+        errs.tinggi_funds = 'Tinggi fundus harus antara 10 - 45 cm.'
+      }
+    }
+    if (form.berat_badan) {
+      const bb = Number(form.berat_badan)
+      if (isNaN(bb) || bb < 30 || bb > 150) {
+        errs.berat_badan = 'Berat badan harus antara 30 - 150 kg.'
+      }
+    }
+    if (form.jarak_kehamilan) {
+      const jk = Number(form.jarak_kehamilan)
+      if (isNaN(jk) || jk < 0 || jk > 60) {
+        errs.jarak_kehamilan = 'Jarak kehamilan harus antara 0 - 60 bulan.'
+      }
+    }
+    if (form.jumlah_anak_lahir) {
+      const ja = Number(form.jumlah_anak_lahir)
+      if (isNaN(ja) || ja < 0 || ja > 15) {
+        errs.jumlah_anak_lahir = 'Jumlah anak lahir harus antara 0 - 15.'
+      }
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs)
+      setFormError('Mohon perbaiki kesalahan pada formulir.')
+      return
+    }
+
+    setSaving(true)
 
     const payload = {
       posyandu_id: Number(form.posyandu_id),
       hpht: form.hpht || null,
       tanggal_perkiraan_lahir: form.tanggal_perkiraan_lahir || null,
-      jarak_kehamilan: num(form.jarak_kehamilan),
-      jumlah_anak_lahir: num(form.jumlah_anak_lahir),
-      tinggi_funds: num(form.tinggi_funds),
-      berat_badan: num(form.berat_badan),
+      jarak_kehamilan: parseNumeric(form.jarak_kehamilan),
+      jumlah_anak_lahir: parseNumeric(form.jumlah_anak_lahir),
+      tinggi_funds: parseNumeric(form.tinggi_funds),
+      berat_badan: parseNumeric(form.berat_badan),
       golongan_darah: form.golongan_darah || null,
-      riwayat_penyakit: form.riwayat_penyakit || null,
+      riwayat_penyakit: form.riwayat_penyakit ? form.riwayat_penyakit.trim() : null,
       status: form.status,
     }
 
@@ -164,8 +218,11 @@ export default function IbuHamilPage() {
       }
 
       setOpen(false)
+      setErrors({})
       await load()
     } catch (err) {
+      const fieldErrors = apiValidationErrors(err)
+      setErrors(fieldErrors)
       setFormError(apiErrorMessage(err))
     } finally {
       setSaving(false)
@@ -191,8 +248,10 @@ export default function IbuHamilPage() {
 
   const set =
     (key: keyof FormState) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       setForm((f) => ({ ...f, [key]: e.target.value }))
+      if (errors[key]) setErrors((prev) => ({ ...prev, [key]: '' }))
+    }
 
   return (
     <div className="space-y-5">
@@ -201,7 +260,7 @@ export default function IbuHamilPage() {
           title="Ibu Hamil"
           subtitle="Pendampingan kehamilan di Posyandu Terpadu. Usia kehamilan dihitung otomatis dari HPHT."
           action={
-            can('KADER', 'manage-ibu-hamil') ? (
+            canManage ? (
               <Button onClick={openCreate}>+ Tambah Ibu Hamil</Button>
             ) : (
               <span className="text-xs text-slate-500">Mode lihat saja</span>
@@ -302,8 +361,18 @@ export default function IbuHamilPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 {!editing && (
-                  <Field label="Orang Tua" required hint="Pilih ibu dari daftar orang tua yang sudah terdaftar.">
-                    <Select value={form.parent_id} onChange={set('parent_id')} required>
+                  <Field
+                    label="Orang Tua"
+                    required
+                    hint="Pilih ibu dari daftar orang tua yang sudah terdaftar."
+                    error={errors.parent_id}
+                  >
+                    <Select
+                      value={form.parent_id}
+                      onChange={set('parent_id')}
+                      hasError={!!errors.parent_id}
+                      required
+                    >
                       <option value="">-- Pilih orang tua --</option>
                       {parents
                         .filter((p) => p.jenis_kelamin === 'P')
@@ -317,8 +386,13 @@ export default function IbuHamilPage() {
                   </Field>
                 )}
 
-                <Field label="Posyandu" required>
-                  <Select value={form.posyandu_id} onChange={set('posyandu_id')} required>
+                <Field label="Posyandu" required error={errors.posyandu_id}>
+                  <Select
+                    value={form.posyandu_id}
+                    onChange={set('posyandu_id')}
+                    hasError={!!errors.posyandu_id}
+                    required
+                  >
                     <option value="">-- Pilih posyandu --</option>
                     {posyandus.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -328,42 +402,93 @@ export default function IbuHamilPage() {
                   </Select>
                 </Field>
 
-                <Field label="HPHT" hint="Hari pertama haid terakhir. Usia kehamilan dihitung dari sini.">
-                  <Input type="date" value={form.hpht} onChange={set('hpht')} max={new Date().toISOString().slice(0, 10)} />
+                <Field
+                  label="HPHT"
+                  hint="Hari pertama haid terakhir. Usia kehamilan dihitung dari sini."
+                  error={errors.hpht}
+                >
+                  <Input
+                    type="date"
+                    value={form.hpht}
+                    onChange={set('hpht')}
+                    hasError={!!errors.hpht}
+                    max={new Date().toISOString().slice(0, 10)}
+                  />
                 </Field>
 
-                <Field label="Perkiraan Hari Lahir" hint="Dipakai bila HPHT tidak diisi.">
+                <Field
+                  label="Perkiraan Hari Lahir"
+                  hint="Dipakai bila HPHT tidak diisi."
+                  error={errors.tanggal_perkiraan_lahir}
+                >
                   <Input
                     type="date"
                     value={form.tanggal_perkiraan_lahir}
                     onChange={set('tanggal_perkiraan_lahir')}
+                    hasError={!!errors.tanggal_perkiraan_lahir}
                   />
                 </Field>
 
-                <Field label="Jarak Kehamilan" hint="Dalam bulan sejak kehamilan terakhir.">
-                  <Input type="number" min={0} max={60} value={form.jarak_kehamilan} onChange={set('jarak_kehamilan')} />
+                <Field
+                  label="Jarak Kehamilan"
+                  hint="Dalam bulan sejak kehamilan terakhir (0-60)."
+                  error={errors.jarak_kehamilan}
+                >
+                  <Input
+                    type="number"
+                    min={0}
+                    max={60}
+                    value={form.jarak_kehamilan}
+                    onChange={set('jarak_kehamilan')}
+                    hasError={!!errors.jarak_kehamilan}
+                  />
                 </Field>
 
-                <Field label="Jumlah Anak Lahir">
+                <Field label="Jumlah Anak Lahir" error={errors.jumlah_anak_lahir}>
                   <Input
                     type="number"
                     min={0}
                     max={15}
                     value={form.jumlah_anak_lahir}
                     onChange={set('jumlah_anak_lahir')}
+                    hasError={!!errors.jumlah_anak_lahir}
                   />
                 </Field>
 
-                <Field label="Tinggi Fundus" hint="cm, normal 10-35 cm.">
-                  <Input type="number" step="0.1" min={10} max={45} value={form.tinggi_funds} onChange={set('tinggi_funds')} />
+                <Field
+                  label="Tinggi Fundus"
+                  hint="cm, normal 10-45 cm."
+                  error={errors.tinggi_funds}
+                >
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min={10}
+                    max={45}
+                    value={form.tinggi_funds}
+                    onChange={set('tinggi_funds')}
+                    hasError={!!errors.tinggi_funds}
+                  />
                 </Field>
 
-                <Field label="Berat Badan" hint="kg">
-                  <Input type="number" step="0.1" min={30} max={150} value={form.berat_badan} onChange={set('berat_badan')} />
+                <Field label="Berat Badan" hint="kg (30-150 kg)" error={errors.berat_badan}>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min={30}
+                    max={150}
+                    value={form.berat_badan}
+                    onChange={set('berat_badan')}
+                    hasError={!!errors.berat_badan}
+                  />
                 </Field>
 
-                <Field label="Golongan Darah">
-                  <Select value={form.golongan_darah} onChange={set('golongan_darah')}>
+                <Field label="Golongan Darah" error={errors.golongan_darah}>
+                  <Select
+                    value={form.golongan_darah}
+                    onChange={set('golongan_darah')}
+                    hasError={!!errors.golongan_darah}
+                  >
                     <option value="">-- Pilih --</option>
                     {GOLONGAN_DARAH.map((g) => (
                       <option key={g} value={g}>
@@ -373,16 +498,25 @@ export default function IbuHamilPage() {
                   </Select>
                 </Field>
 
-                <Field label="Status">
-                  <Select value={form.status} onChange={set('status')}>
+                <Field label="Status" error={errors.status}>
+                  <Select
+                    value={form.status}
+                    onChange={set('status')}
+                    hasError={!!errors.status}
+                  >
                     <option value="active">Aktif</option>
                     <option value="inactive">Selesai Dipantau</option>
                   </Select>
                 </Field>
               </div>
 
-              <Field label="Riwayat Penyakit">
-                <Textarea rows={2} value={form.riwayat_penyakit} onChange={set('riwayat_penyakit')} />
+              <Field label="Riwayat Penyakit" error={errors.riwayat_penyakit}>
+                <Textarea
+                  rows={2}
+                  value={form.riwayat_penyakit}
+                  onChange={set('riwayat_penyakit')}
+                  hasError={!!errors.riwayat_penyakit}
+                />
               </Field>
 
               <div className="flex justify-end gap-2 pt-2">

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { apiErrorMessage, apiParents, apiPosyandu, apiUsers } from '@/shared/lib/api'
+import { useAuth } from '@/features/auth/AuthContext'
+import { apiErrorMessage, apiParents, apiPosyandu, apiUsers, apiValidationErrors } from '@/shared/lib/api'
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/card'
 import { Button, EmptyState, ErrorState, Field, Input, Select, Spinner } from '@/shared/components/ui/field'
 import { ConfirmDeleteModal } from '@/shared/components/ui/modal'
 import { useToast } from '@/shared/components/ui/toast'
 import { useDebounce } from '@/shared/hooks/useDebounce'
+import { isValidPhone } from '@/shared/lib/utils'
 import { ROLES, ROLE_LABEL, type OrangTua, type Posyandu, type Role, type User } from '@/shared/types'
 
 type FormState = {
@@ -29,6 +31,7 @@ const EMPTY_FORM: FormState = {
 
 export default function UsersPage() {
   const toast = useToast()
+  const { isAdmin } = useAuth()
 
   const [rows, setRows] = useState<User[]>([])
   const [posyandus, setPosyandus] = useState<Posyandu[]>([])
@@ -43,11 +46,19 @@ export default function UsersPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [deleting, setDeleting] = useState<User | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
   const debouncedSearch = useDebounce(search, 400)
+
+  const handleOpen = () => {
+    setForm(EMPTY_FORM)
+    setFormError(null)
+    setErrors({})
+    setOpen(true)
+  }
 
   const load = useCallback(async () => {
     try {
@@ -88,26 +99,56 @@ export default function UsersPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSaving(true)
     setFormError(null)
+    setErrors({})
+
+    const errs: Record<string, string> = {}
+    if (!form.name.trim()) errs.name = 'Nama lengkap wajib diisi.'
+    if (!form.email.trim()) errs.email = 'Email wajib diisi.'
+    if (form.password.length < 8) {
+      errs.password = 'Password minimal 8 karakter.'
+    }
+    if (isAdmin && form.role === 'ORANG_TUA' && !form.parent_id) {
+      errs.parent_id = 'Profil orang tua wajib dipilih untuk akun peran Orang Tua.'
+    }
+    if (form.phone && !isValidPhone(form.phone)) {
+      errs.phone = 'Format nomor telepon tidak valid (contoh: 081234567890).'
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs)
+      setFormError('Mohon perbaiki kesalahan pada formulir.')
+      return
+    }
+
+    setSaving(true)
+
+    const payload: Record<string, unknown> = {
+      name: form.name.trim(),
+      email: form.email.trim(),
+      password: form.password,
+      password_confirmation: form.password,
+      phone: form.phone.trim() || null,
+    }
+
+    // Keamanan: non-admin dilarang mengirimkan role, parent_id, posyandu_ids, dan is_active
+    if (isAdmin) {
+      payload.role = form.role
+      payload.parent_id = form.role === 'ORANG_TUA' && form.parent_id ? Number(form.parent_id) : null
+      payload.posyandu_ids = form.posyandu_ids
+    }
 
     try {
-      await apiUsers.create({
-        name: form.name,
-        email: form.email,
-        password: form.password,
-        role: form.role,
-        phone: form.phone || null,
-        // Hanya role ORANG_TUA yang butuh tautan ke profil orang tua.
-        parent_id: form.role === 'ORANG_TUA' && form.parent_id ? Number(form.parent_id) : null,
-        posyandu_ids: form.posyandu_ids,
-      })
+      await apiUsers.create(payload)
 
       toast.show('Pengguna berhasil dibuat')
       setOpen(false)
       setForm(EMPTY_FORM)
+      setErrors({})
       await load()
     } catch (err) {
+      const fieldErrors = apiValidationErrors(err)
+      setErrors(fieldErrors)
       setFormError(apiErrorMessage(err))
     } finally {
       setSaving(false)
@@ -143,7 +184,7 @@ export default function UsersPage() {
         <CardHeader
           title="Pengguna"
           subtitle="Akun login untuk admin, kader, dan orang tua. Akun orang tua wajib ditautkan ke profil orang tua."
-          action={<Button onClick={() => setOpen(true)}>+ Tambah Pengguna</Button>}
+          action={<Button onClick={handleOpen}>+ Tambah Pengguna</Button>}
         />
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -231,52 +272,79 @@ export default function UsersPage() {
             <form onSubmit={submit} className="p-6 space-y-4">
               {formError && <p className="text-sm text-red-600 bg-red-50 rounded-xl px-3 py-2">{formError}</p>}
 
-              <Field label="Nama" required>
-                <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              </Field>
-
-              <Field label="Email" required>
+              <Field label="Nama" required error={errors.name}>
                 <Input
                   required
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  hasError={!!errors.name}
+                  value={form.name}
+                  onChange={(e) => {
+                    setForm({ ...form, name: e.target.value })
+                    if (errors.name) setErrors({ ...errors, name: '' })
+                  }}
                 />
               </Field>
 
-              <Field label="Password" required hint="Minimal 8 karakter">
+              <Field label="Email" required error={errors.email}>
+                <Input
+                  required
+                  type="email"
+                  hasError={!!errors.email}
+                  value={form.email}
+                  onChange={(e) => {
+                    setForm({ ...form, email: e.target.value })
+                    if (errors.email) setErrors({ ...errors, email: '' })
+                  }}
+                />
+              </Field>
+
+              <Field label="Password" required hint="Minimal 8 karakter" error={errors.password}>
                 <Input
                   required
                   type="password"
                   minLength={8}
+                  hasError={!!errors.password}
                   value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, password: e.target.value })
+                    if (errors.password) setErrors({ ...errors, password: '' })
+                  }}
                 />
               </Field>
 
-              <Field label="Role" required>
-                <Select
-                  value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value as Role, parent_id: '' })}
-                >
-                  {ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {ROLE_LABEL[r]}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+              {isAdmin && (
+                <Field label="Role" required error={errors.role}>
+                  <Select
+                    hasError={!!errors.role}
+                    value={form.role}
+                    onChange={(e) => {
+                      setForm({ ...form, role: e.target.value as Role, parent_id: '' })
+                      if (errors.role) setErrors({ ...errors, role: '' })
+                    }}
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r} value={r}>
+                        {ROLE_LABEL[r]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
 
-              {form.role === 'ORANG_TUA' && (
+              {isAdmin && form.role === 'ORANG_TUA' && (
                 <Field
                   label="Profil Orang Tua"
                   required
                   hint="Wajib. Menentukan anak mana yang boleh dilihat akun ini."
+                  error={errors.parent_id}
                 >
                   <Select
                     required
+                    hasError={!!errors.parent_id}
                     value={form.parent_id}
-                    onChange={(e) => setForm({ ...form, parent_id: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, parent_id: e.target.value })
+                      if (errors.parent_id) setErrors({ ...errors, parent_id: '' })
+                    }}
                   >
                     <option value="">-- Pilih profil orang tua --</option>
                     {parents.map((p) => (
@@ -289,27 +357,40 @@ export default function UsersPage() {
                 </Field>
               )}
 
-              <Field label="Nomor Telepon">
-                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <Field label="Nomor Telepon" hint="Format: 08xxxxxxxxxx atau +628xxxxxxxxxx" error={errors.phone}>
+                <Input
+                  type="tel"
+                  inputMode="tel"
+                  hasError={!!errors.phone}
+                  placeholder="081234567890"
+                  value={form.phone}
+                  onChange={(e) => {
+                    setForm({ ...form, phone: e.target.value })
+                    if (errors.phone) setErrors({ ...errors, phone: '' })
+                  }}
+                />
               </Field>
 
-              <Field
-                label="Posyandu yang Diakses"
-                hint="Kader hanya dapat mengakses posyandu yang dicentang. Admin selalu ke seluruh posyandu."
-              >
-                <div className="space-y-1 max-h-[140px] overflow-auto border border-slate-200 rounded-xl p-3">
-                  {posyandus.map((p) => (
-                    <label key={p.id} className="flex items-center gap-2 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={form.posyandu_ids.includes(p.id)}
-                        onChange={(e) => togglePosyandu(p.id, e.target.checked)}
-                      />
-                      {p.nama_posyandu}
-                    </label>
-                  ))}
-                </div>
-              </Field>
+              {isAdmin && (
+                <Field
+                  label="Posyandu yang Diakses"
+                  hint="Kader hanya dapat mengakses posyandu yang dicentang. Admin selalu ke seluruh posyandu."
+                  error={errors.posyandu_ids}
+                >
+                  <div className="space-y-1 max-h-[140px] overflow-auto border border-slate-200 rounded-xl p-3">
+                    {posyandus.map((p) => (
+                      <label key={p.id} className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={form.posyandu_ids.includes(p.id)}
+                          onChange={(e) => togglePosyandu(p.id, e.target.checked)}
+                        />
+                        {p.nama_posyandu}
+                      </label>
+                    ))}
+                  </div>
+                </Field>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="secondary" onClick={() => setOpen(false)}>

@@ -2,27 +2,30 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreParentRequest;
 use App\Http\Requests\UpdateParentRequest;
 use App\Http\Resources\ParentResource;
 use App\Models\ParentModel;
 use App\Services\AuditLogService;
+use App\Support\SqlHelper;
 use Illuminate\Http\Request;
 
 class ParentController extends Controller
 {
     public function index(Request $request)
     {
+        $this->authorize('viewAny', ParentModel::class);
+
         $q = ParentModel::query()
             ->withCount('children')
             ->forUser($request->user());
 
         if ($search = $request->query('search')) {
-            $q->where(function ($sub) use ($search) {
-                $sub->where('nama_lengkap', 'ilike', "%$search%")
-                    ->orWhere('nik', 'ilike', "%$search%");
+            $escaped = SqlHelper::escapeLike($search);
+            $q->where(function ($sub) use ($escaped) {
+                $sub->where('nama_lengkap', 'ilike', "%{$escaped}%")
+                    ->orWhere('nik', 'ilike', "%{$escaped}%");
             });
         }
 
@@ -43,7 +46,7 @@ class ParentController extends Controller
 
     public function store(StoreParentRequest $request)
     {
-        $this->authorizeMutation($request);
+        $this->authorize('create', ParentModel::class);
 
         $parent = ParentModel::create($request->validated());
 
@@ -58,9 +61,7 @@ class ParentController extends Controller
 
     public function show(Request $request, ParentModel $parent)
     {
-        if (! $this->canRead($request, $parent)) {
-            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
-        }
+        $this->authorize('view', $parent);
 
         $parent->load('children.posyandu');
 
@@ -72,11 +73,7 @@ class ParentController extends Controller
 
     public function update(UpdateParentRequest $request, ParentModel $parent)
     {
-        if (! $this->canRead($request, $parent)) {
-            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
-        }
-
-        $this->authorizeMutation($request);
+        $this->authorize('update', $parent);
 
         $old = $parent->toArray();
         $parent->update($request->validated());
@@ -92,34 +89,14 @@ class ParentController extends Controller
 
     public function destroy(Request $request, ParentModel $parent)
     {
-        // Penghapusan data orang tua impacting banyak anak, jadi khusus ADMIN.
-        if ($request->user()->role !== Role::ADMIN->value) {
-            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
-        }
+        $this->authorize('delete', $parent);
 
+        $id = $parent->id;
         $old = $parent->toArray();
         $parent->delete();
 
-        AuditLogService::log('DELETE', 'parents', $parent->id, $old, null);
+        AuditLogService::log('DELETE', 'parents', $id, $old, null);
 
         return response()->json(['success' => true, 'message' => 'Data orang tua berhasil dihapus']);
-    }
-
-    /** Orang tua hanya boleh membaca profilnya sendiri. */
-    private function canRead(Request $request, ParentModel $parent): bool
-    {
-        $user = $request->user();
-
-        if ($user->isOrangTua()) {
-            return $user->parent_id !== null && $user->parent_id === $parent->id;
-        }
-
-        return true;
-    }
-
-    /** Orang tua bersifat read-only pada modul ini. */
-    private function authorizeMutation(Request $request): void
-    {
-        abort_if($request->user()->isOrangTua(), 403, 'Forbidden');
     }
 }

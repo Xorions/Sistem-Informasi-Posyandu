@@ -36,15 +36,15 @@ cd frontend; npm run build:prod
 
 Akun demo, password semuanya `password123`:
 
-| Role | Email |
-|------|-------|
-| ADMIN | `admin@example.test` |
-| ADMIN | `admin.cutnyakdien@example.test` |
-| KADER | `kader@example.test` |
-| KADER | `kader.kartika@example.test` |
-| KADER | `kader.kartini@example.test` |
-| KADER | `kader.radenintan@example.test` |
-| ORANG_TUA | `orangtua@example.test` |
+| Role      | Email                            |
+| --------- | -------------------------------- |
+| ADMIN     | `admin@example.test`             |
+| ADMIN     | `admin.cutnyakdien@example.test` |
+| KADER     | `kader@example.test`             |
+| KADER     | `kader.kartika@example.test`     |
+| KADER     | `kader.kartini@example.test`     |
+| KADER     | `kader.radenintan@example.test`  |
+| ORANG_TUA | `orangtua@example.test`          |
 
 Jumlah anak hasil seeding: 14 / 15 / 17 / 15 = **61 anak** di keempat posyandu.
 
@@ -113,12 +113,12 @@ Harus pakai SQL langsung. Contoh lengkap ada di
 
 Jangan tulis path atau daftar role secara manual.
 
-| Kebutuhan | Sumber tunggal |
-|-----------|----------------|
-| Path rute | `frontend/src/app/routes.tsx` (`ROUTES`) |
-| Izin akses | `frontend/src/shared/lib/rbac.ts` (`can(role, permission)`) |
-| Env / kunci localStorage | `frontend/src/shared/lib/config.ts` (`CONFIG`) |
-| Bentuk data | `frontend/src/shared/types/index.ts` |
+| Kebutuhan                | Sumber tunggal                                              |
+| ------------------------ | ----------------------------------------------------------- |
+| Path rute                | `frontend/src/app/routes.tsx` (`ROUTES`)                    |
+| Izin akses               | `frontend/src/shared/lib/rbac.ts` (`can(role, permission)`) |
+| Env / kunci localStorage | `frontend/src/shared/lib/config.ts` (`CONFIG`)              |
+| Bentuk data              | `frontend/src/shared/types/index.ts`                        |
 
 Sidebar (`Layout.tsx`) dan router (`app/App.tsx`) sama-sama pakai `rbac.ts`.
 Halaman baru wajib pakai `can(role, permission)`, bukan `user.role === '...'`.
@@ -129,6 +129,49 @@ Halaman baru wajib pakai `can(role, permission)`, bukan `user.role === '...'`.
 `vaccine_name`, `tanggal_periksa`), bukan istilah lokal. Kalau ada perubahan
 kolom di backend, update file ini di waktu yang sama.
 
+### 8. Sanitasi Audit Log dan Perlindungan PII
+
+- **Dilarang passing `$request->all()` mentah ke `AuditLogService::log()`.**
+- `AuditLogService` secara rekursif membersihkan keys sensitif (`password`, `token`, `secret`, `api_key`, `credentials`) dan menyamarkan PII (`nik`, `kk`, `nomor_telepon`, `no_hp`).
+- Model resource yang menampilkan PII wajib menggunakan trait `App\Support\HasPiiMasking` agar role non-admin (misal KADER di halaman list) hanya melihat data yang tersamar (misal `3201********0001`), sementara detail (`show`) dan ADMIN tetap melihat data lengkap sesuai izin.
+
+### 9. Sanitasi Export CSV/Excel (Formula Injection)
+
+- Semua data tabular yang diekspor ke CSV atau Excel wajib disaring melalui `App\Support\CsvSanitizer::sanitizeValue()` atau `CsvSanitizer::sanitizeRow()`.
+- Mencegah eksekusi spreadsheet formula injection (`=`, `+`, `-`, `@`, `\t`, `\r`) dengan menambahkan prefix kutip tunggal (`'`), namun mempertahankan nilai numerik asli (`int`, `float`).
+
+### 10. Sanitasi Wildcard SQL ILIKE
+
+- Semua pencarian teks pengguna yang dimasukkan ke operator `ilike '%keyword%'` wajib dibungkus dengan `App\Support\SqlHelper::escapeLike($term)`.
+- Ini mencegah karakter wildcard (`%`, `_`, `\`) mem-bypass filter pencarian atau menyebabkan scanning seluruh tabel.
+
+### 11. Batas Validasi Medis dan Format Data Identitas
+
+- Antropometri anak memiliki batasan medis ketat di FormRequest:
+  - Berat badan (`weight`): 1.5 - 35 kg
+  - Tinggi/Panjang badan (`height` / `length`): 40 - 130 cm
+  - Lingkar kepala (`head_circumference`): 30 - 60 cm
+  - Lingkar lengan atas (`arm_circumference` / LiLA): 8 - 25 cm (WAJIB diisi)
+- NIK dan No KK wajib tepat 16 digit numerik (`digits:16`).
+- Nomor telepon wajib format Indonesia valid (`regex:/^(\+62|62|0)8[1-9][0-9]{6,11}$/`).
+
+### 12. Dilarang Mengirim Nilai Tersamar (Masked PII) Kembali ke Backend
+
+- Nilai PII tersamar (`3201********0001`, `0812****7890`) adalah tampilan satu arah untuk role non-admin pada endpoint list.
+- Frontend dilarang mengirim kembali string ber-asterisk (`*`) pada request PUT/PATCH. Gunakan helper `buildDirtyPayload()` di `shared/lib/utils.ts` agar hanya field yang diedit nyata yang dikirim.
+- FormRequest backend mendeteksi bila field PII tidak disertakan saat update dan mempertahankan data lama di database.
+
+### 13. Seluruh Request Lewat Instance Axios Terpusat
+
+- Seluruh request HTTP di frontend wajib memanggil helper dari `frontend/src/shared/lib/api.ts` (mis. `apiChildren`, `apiReports`, dll.). Dilarang menggunakan pemanggilan axios mentah di komponen.
+- Semua pesan error dinormalisasi lewat `apiErrorMessage()` dan `extractBlobErrorMessage()`. Pesan error teknis backend (SQLSTATE, stack trace, exception class, path file) disaring dan diganti dengan pesan ramah pengguna.
+
+### 14. Keamanan Frontend dan Sanitasi Konten
+
+- `dangerouslySetInnerHTML` hanya digunakan pada konten artikel edukasi penuh dengan sanitasi `sanitizeHtml()` (DOMParser). Preview/excerpt kartu wajib memakai teks murni lewat `stripHtml()`.
+- Semua tautan eksternal (`target="_blank"`) wajib menyertakan `rel="noopener noreferrer"`.
+- Variabel environment frontend (`VITE_*`) hanya berisi nilai konfigurasi publik (mis. `VITE_API_BASE_URL`). Rahasia / secret API keys tidak boleh ada di frontend.
+
 ## Jebakan yang sudah pernah kejadian
 
 **1. `php artisan test` menghapus data development.**
@@ -138,6 +181,7 @@ menjalankan `RefreshDatabase` terhadap database dev dan menghapus seluruh isinya
 Sudah pernah kejadian sekali - jangan dibalik.
 
 **2. Dua port, dua aplikasi berbeda.**
+
 - `localhost:5173` (Vite dev) selalu kode terbaru.
 - `127.0.0.1:8000` (Laravel) menyajikan `backend/public/assets` + `app.blade.php`.
 
@@ -182,19 +226,19 @@ waktu longgar. Tidak perlu dijelaskan ulang dari awal; cukup cek daftar ini.
 **Ini saran yang paling sering aku ingatin.** Halaman-halaman ini masih
 menulis pemanggilan axios mentah dan menyimpan state bertipe `any`:
 
-| Halaman | Masalah |
-|---------|---------|
-| `features/pertumbuhan/pages/Pertumbuhan.tsx` | 4 `useState<any>`, 3 panggilan `api.get` |
-| `features/children/pages/List.tsx` | masih `any` |
-| `features/children/pages/Form.tsx` | masih `any` |
-| `features/children/pages/Detail.tsx` | masih `any` |
-| `features/analisis/pages/Analisis.tsx` | masih `any` |
-| `features/reports/pages/Reports.tsx` | masih `any` |
-| `features/examinations/pages/Examinations.tsx` | masih `any` |
-| `features/follow-ups/pages/FollowUps.tsx` | masih `any` |
-| `features/parents/pages/Parents.tsx` | masih `any` |
-| `features/posyandu/pages/Posyandu.tsx` | masih `any` |
-| `features/audit-logs/pages/AuditLogs.tsx` | masih `any` |
+| Halaman                                        | Masalah                                  |
+| ---------------------------------------------- | ---------------------------------------- |
+| `features/pertumbuhan/pages/Pertumbuhan.tsx`   | 4 `useState<any>`, 3 panggilan `api.get` |
+| `features/children/pages/List.tsx`             | masih `any`                              |
+| `features/children/pages/Form.tsx`             | masih `any`                              |
+| `features/children/pages/Detail.tsx`           | masih `any`                              |
+| `features/analisis/pages/Analisis.tsx`         | masih `any`                              |
+| `features/reports/pages/Reports.tsx`           | masih `any`                              |
+| `features/examinations/pages/Examinations.tsx` | masih `any`                              |
+| `features/follow-ups/pages/FollowUps.tsx`      | masih `any`                              |
+| `features/parents/pages/Parents.tsx`           | masih `any`                              |
+| `features/posyandu/pages/Posyandu.tsx`         | masih `any`                              |
+| `features/audit-logs/pages/AuditLogs.tsx`      | masih `any`                              |
 
 Halaman yang **sudah** rapi (pola yang harus ditirukan): `features/kader/`,
 `features/bumil/`, `features/immunizations/`, `features/schedules/`,

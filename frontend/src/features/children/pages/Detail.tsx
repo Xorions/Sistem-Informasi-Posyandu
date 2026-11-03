@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api } from "@/shared/lib/api"
+import { useAuth } from '@/features/auth/AuthContext'
+import { can } from '@/shared/lib/rbac'
 import { Card, CardContent, CardHeader } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { formatDate, ageFromDob } from "@/shared/lib/utils"
@@ -9,7 +11,10 @@ import { useToast } from "@/shared/components/ui/toast"
 
 export default function ChildDetail() {
   const { id } = useParams()
+  const { role } = useAuth()
   const toast = useToast()
+  const canManageChild = can(role, 'manage-anak')
+  const canManageExam = can(role, 'manage-pemeriksaan')
   const [child, setChild] = useState<any>(null)
   const [tab, setTab] = useState('profil')
   const [exams, setExams] = useState<any[]>([])
@@ -58,10 +63,16 @@ export default function ChildDetail() {
             <p className="text-sm text-slate-600 mt-1">{child.tempat_lahir}, {formatDate(child.tanggal_lahir)} • {ageFromDob(child.tanggal_lahir)} • {child.jenis_kelamin==='L'?'Laki-laki':'Perempuan'}</p>
             <p className="text-sm text-slate-500">{child.posyandu?.nama_posyandu} • {child.alamat}</p>
           </div>
-          <div className="flex gap-2">
-            <Link to={`/children/${id}/edit`} className="px-4 py-2 rounded-xl border border-slate-200 text-sm">Edit</Link>
-            <Link to={`/examinations?child_id=${id}`} className="px-4 py-2 rounded-xl bg-teal-600 text-white text-sm">+ Pemeriksaan</Link>
-          </div>
+          {(canManageChild || canManageExam) && (
+            <div className="flex gap-2">
+              {canManageChild && (
+                <Link to={`/children/${id}/edit`} className="px-4 py-2 rounded-xl border border-slate-200 text-sm">Edit</Link>
+              )}
+              {canManageExam && (
+                <Link to={`/examinations?child_id=${id}`} className="px-4 py-2 rounded-xl bg-teal-600 text-white text-sm">+ Pemeriksaan</Link>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

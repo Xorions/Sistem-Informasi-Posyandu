@@ -5,6 +5,7 @@ import { CONFIG } from '@/shared/lib/config'
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/card'
 import { Spinner } from '@/shared/components/ui/field'
 import { ROUTES } from '@/app/routes'
+import { sanitizeHtml, stripHtml } from '@/shared/lib/utils'
 import type { Education } from '@/shared/types'
 
 function PublicHeader() {
@@ -71,10 +72,9 @@ export default function EdukasiPublic() {
               <Card key={e.id}>
                 <CardHeader title={e.title} subtitle={e.category?.name} />
                 <CardContent>
-                  <div
-                    className="prose prose-sm text-slate-600 line-clamp-4"
-                    dangerouslySetInnerHTML={{ __html: e.content }}
-                  />
+                  <p className="text-xs text-slate-600 line-clamp-4">
+                    {stripHtml(e.content)}
+                  </p>
                   <Link
                     to={ROUTES.edukasiDetail(e.slug)}
                     className="inline-block mt-3 text-sm text-teal-600 hover:underline font-medium"
@@ -148,14 +148,19 @@ export function EdukasiPublicDetail() {
 
           <div
             className="prose prose-sm text-slate-700 mt-6 max-w-none"
-            dangerouslySetInnerHTML={{ __html: item.content }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.content) }}
           />
 
           {item.source && (
             <p className="text-xs text-slate-500 mt-6 border-t border-slate-100 pt-3">
               Sumber: {item.source}
               {item.source_url && (
-                <a href={item.source_url} className="text-teal-600 underline ml-1">
+                <a
+                  href={item.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-600 underline ml-1"
+                >
                   {item.source_url}
                 </a>
               )}

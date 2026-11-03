@@ -9,6 +9,7 @@ use App\Http\Resources\ChildResource;
 use App\Models\Child;
 use App\Models\ParentModel;
 use App\Services\AuditLogService;
+use App\Support\SqlHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -31,10 +32,11 @@ class ChildController extends Controller
             $q->where('posyandu_id', $posyanduId);
         }
         if ($search = $request->query('search')) {
-            $q->where(function ($qq) use ($search) {
-                $qq->where('nama_lengkap', 'ilike', "%$search%")
-                    ->orWhere('nik', 'ilike', "%$search%")
-                    ->orWhere('tempat_lahir', 'ilike', "%$search%");
+            $escaped = SqlHelper::escapeLike($search);
+            $q->where(function ($qq) use ($escaped) {
+                $qq->where('nama_lengkap', 'ilike', "%{$escaped}%")
+                    ->orWhere('nik', 'ilike', "%{$escaped}%")
+                    ->orWhere('tempat_lahir', 'ilike', "%{$escaped}%");
             });
         }
         if ($jk = $request->query('jenis_kelamin')) {
@@ -131,9 +133,10 @@ class ChildController extends Controller
     public function destroy(Request $request, Child $child)
     {
         Gate::authorize('delete', $child);
+        $id = $child->id;
         $old = $child->toArray();
         $child->delete();
-        AuditLogService::log('DELETE', 'children', $child->id, $old, null);
+        AuditLogService::log('DELETE', 'children', $id, $old, null);
 
         return response()->json(['success' => true, 'message' => 'Data anak berhasil dihapus']);
     }
@@ -145,7 +148,8 @@ class ChildController extends Controller
         }
         $q = Child::onlyTrashed()->with(['posyandu']);
         if ($search = $request->query('search')) {
-            $q->where('nama_lengkap', 'ilike', "%$search%");
+            $escaped = SqlHelper::escapeLike($search);
+            $q->where('nama_lengkap', 'ilike', "%{$escaped}%");
         }
         $perPage = min((int) $request->query('per_page', 10), 100);
         $data = $q->paginate($perPage);
@@ -168,26 +172,26 @@ class ChildController extends Controller
     public function attachParent(Request $request, Child $child)
     {
         Gate::authorize('update', $child);
-        $request->validate([
+        $validated = $request->validate([
             'parent_id' => 'required_without:nama_lengkap|exists:parents,id',
             'nama_lengkap' => 'required_without:parent_id|string|max:255',
             'relationship' => 'required|in:Ayah,Ibu,Wali',
             'is_primary_contact' => 'nullable|boolean',
-            'nik' => 'nullable|string|max:20',
-            'nomor_telepon' => 'nullable|string|max:20',
+            'nik' => 'nullable|digits:16',
+            'nomor_telepon' => ['nullable', 'string', 'regex:/^(\+62|62|0)8[1-9][0-9]{6,11}$/'],
             'alamat' => 'nullable|string',
             'tempat_lahir' => 'nullable|string|max:100',
             'tanggal_lahir' => 'nullable|date',
             'jenis_kelamin' => 'nullable|in:L,P',
             'pekerjaan' => 'nullable|string|max:100',
         ]);
-        if (! empty($request->parent_id)) {
-            $child->parents()->syncWithoutDetaching([$request->parent_id => ['relationship' => $request->relationship, 'is_primary_contact' => $request->is_primary_contact ?? false]]);
+        if (! empty($validated['parent_id'] ?? null)) {
+            $child->parents()->syncWithoutDetaching([$validated['parent_id'] => ['relationship' => $validated['relationship'], 'is_primary_contact' => $validated['is_primary_contact'] ?? false]]);
         } else {
-            $parent = ParentModel::create($request->only(['nik', 'nama_lengkap', 'tempat_lahir', 'tanggal_lahir', 'jenis_kelamin', 'alamat', 'nomor_telepon', 'pekerjaan']));
-            $child->parents()->attach($parent->id, ['relationship' => $request->relationship, 'is_primary_contact' => $request->is_primary_contact ?? false]);
+            $parent = ParentModel::create(collect($validated)->only(['nik', 'nama_lengkap', 'tempat_lahir', 'tanggal_lahir', 'jenis_kelamin', 'alamat', 'nomor_telepon', 'pekerjaan'])->all());
+            $child->parents()->attach($parent->id, ['relationship' => $validated['relationship'], 'is_primary_contact' => $validated['is_primary_contact'] ?? false]);
         }
-        AuditLogService::log('UPDATE', 'children', $child->id, null, ['attach_parent' => $request->all()]);
+        AuditLogService::log('UPDATE', 'children', $child->id, null, ['attach_parent' => $validated]);
 
         return response()->json(['success' => true, 'message' => 'Orang tua berhasil dihubungkan']);
     }
@@ -196,7 +200,7 @@ class ChildController extends Controller
     {
         Gate::authorize('update', $child);
         $child->parents()->detach($parentId);
-        AuditLogService::log('UPDATE','children',$child->id,null,['detach_parent' => $parentId]);
+        AuditLogService::log('UPDATE', 'children', $child->id, null, ['detach_parent' => $parentId]);
 
         return response()->json(['success' => true, 'message' => 'Orang tua berhasil dilepas']);
     }

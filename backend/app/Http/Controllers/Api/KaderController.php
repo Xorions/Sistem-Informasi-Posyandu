@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateKaderRequest;
 use App\Http\Resources\KaderResource;
 use App\Models\Kader;
 use App\Services\AuditLogService;
+use App\Support\SqlHelper;
 use Illuminate\Http\Request;
 
 class KaderController extends Controller
@@ -27,9 +28,10 @@ class KaderController extends Controller
         }
 
         if ($search = $request->query('search')) {
-            $q->where(function ($sub) use ($search) {
-                $sub->where('nama_kader', 'ilike', "%$search%")
-                    ->orWhere('nik_kader', 'ilike', "%$search%");
+            $escaped = SqlHelper::escapeLike($search);
+            $q->where(function ($sub) use ($escaped) {
+                $sub->where('nama_kader', 'ilike', "%{$escaped}%")
+                    ->orWhere('nik_kader', 'ilike', "%{$escaped}%");
             });
         }
 

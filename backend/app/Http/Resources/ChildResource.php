@@ -2,24 +2,30 @@
 
 namespace App\Http\Resources;
 
+use App\Support\HasPiiMasking;
+use App\Support\Mask;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ChildResource extends JsonResource
 {
+    use HasPiiMasking;
+
     public function toArray($request): array
     {
+        $showRaw = $this->shouldShowRawPii($request, $this->resource, $this->posyandu_id);
+
         return [
             'id' => $this->id,
             'posyandu' => $this->whenLoaded('posyandu', fn () => new PosyanduResource($this->posyandu)),
             'posyandu_id' => $this->posyandu_id,
-            'nik' => $this->nik,
+            'nik' => $showRaw ? $this->nik : Mask::nik($this->nik),
             'nama_lengkap' => $this->nama_lengkap,
             'nama_panggilan' => $this->nama_panggilan,
             'tempat_lahir' => $this->tempat_lahir,
             'tanggal_lahir' => $this->tanggal_lahir?->format('Y-m-d'),
             'jenis_kelamin' => $this->jenis_kelamin,
             'alamat' => $this->alamat,
-            'nomor_kk' => $this->nomor_kk,
+            'nomor_kk' => $showRaw ? $this->nomor_kk : Mask::kk($this->nomor_kk),
             'status' => $this->status,
             'umur_bulan' => $this->umur_bulan ?? null,
             'umur_tahun' => $this->umur_tahun ?? null,

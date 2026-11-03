@@ -71,7 +71,7 @@ class ChildParentSeeder extends Seeder
 
                 // Dua anak berbagi satu keluarga agar ada saudara sekandung,
                 // dan tetap terdaftar di posyandu yang sama.
-if ($i % 2 === 0) {
+                if ($i % 2 === 0) {
                     $counterKeluarga++;
                     $keluarga = $this->namaKeluarga($counterKeluarga);
                     $ayah = $this->buatOrangTua($keluarga['ayah'], 'L', $counterLaki++);
@@ -171,14 +171,14 @@ if ($i % 2 === 0) {
         return '320101'.str_pad((string) $urut, 4, '0', STR_PAD_LEFT).'000'.($urut % 10);
     }
 
-/**
- * NIK 16 digit:pria berakhir angka ganjil, wanita angka genap.
- * Dipakai juga sebagai penjaga agar tidak ada NIK kembar.
- */
-private function nikOrangTua(int $index, string $jenisKelamin): string
-{
-$nomor = 32_010_101_010_100_000 + ($index * 2) + ($jenisKelamin === 'L' ? 1 : 2);
+    /**
+     * NIK 16 digit:pria berakhir angka ganjil, wanita angka genap.
+     * Dipakai juga sebagai penjaga agar tidak ada NIK kembar.
+     */
+    private function nikOrangTua(int $index, string $jenisKelamin): string
+    {
+        $nomor = 32_010_101_010_100_000 + ($index * 2) + ($jenisKelamin === 'L' ? 1 : 2);
 
-return (string) $nomor;
-}
+        return (string) $nomor;
+    }
 }

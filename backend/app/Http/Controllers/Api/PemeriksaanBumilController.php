@@ -110,10 +110,11 @@ class PemeriksaanBumilController extends Controller
     {
         $this->authorize('delete', $pemeriksaan);
 
+        $id = $pemeriksaan->id;
         $old = $pemeriksaan->only(['tanggal_periksa', 'usia_kehamilan', 'status']);
         $pemeriksaan->delete();
 
-        AuditLogService::log('DELETE', 'pemeriksaan_bumil', $pemeriksaan->id, $old, null);
+        AuditLogService::log('DELETE', 'pemeriksaan_bumil', $id, $old, null);
 
         return response()->json([
             'success' => true,

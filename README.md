@@ -55,6 +55,7 @@ Project kapita selekta/
 ## 4. Installation
 
 ### Backend
+
 ```bash
 cd backend
 composer install
@@ -66,11 +67,14 @@ php artisan serve --host=127.0.0.1 --port=8000
 ```
 
 ### Frontend
+
 ```bash
 cd frontend
 npm install
-npm run dev    # http://127.0.0.1:5173  (proxy /api → :8000)
-npm run build  # production build → dist/
+npm run dev        # http://127.0.0.1:5173  (proxy /api → :8000)
+npm run lint       # pengecekan tipe TypeScript (tsc --noEmit)
+npm run build      # production build → dist/
+npm run build:prod # build dan otomatis salin aset ke backend/public/assets + update app.blade.php
 ```
 
 ---
@@ -104,18 +108,19 @@ Jangan commit `.env` asli.
 - Migrations sudah include indexing per spec 59, softDeletes, transaction.
 - Seeder menghasilkan:
 
-| Posyandu | Jumlah anak |
-|----------|-------------|
-| PSY001 Cut Nyak Dien | 14 |
-| PSY002 Kartika | 15 |
-| PSY003 Kartini | 17 |
-| PSY004 Raden Intan | 15 |
-| **Total** | **61** |
+| Posyandu             | Jumlah anak |
+| -------------------- | ----------- |
+| PSY001 Cut Nyak Dien | 14          |
+| PSY002 Kartika       | 15          |
+| PSY003 Kartini       | 17          |
+| PSY004 Raden Intan   | 15          |
+| **Total**            | **61**      |
 
-  Anak dikelompokkan dalam keluarga dua bersaudara di posyandu yang sama, dengan 64 orang tua/wali.
-  Dilengkapi 8 kader, 8 artikel edukasi, 4 ibu hamil beserta 12 hasil pemeriksaan,
-  348 catatan vaksin, 92 catatan vitamin, 8 jadwal kegiatan, dan 177 pemeriksaan
-  dengan `growth_records` yang selalu mengisi LiLA.
+Anak dikelompokkan dalam keluarga dua bersaudara di posyandu yang sama, dengan 64 orang tua/wali.
+Dilengkapi 8 kader, 8 artikel edukasi, 4 ibu hamil beserta 12 hasil pemeriksaan,
+348 catatan vaksin, 92 catatan vitamin, 8 jadwal kegiatan, dan 177 pemeriksaan
+dengan `growth_records` yang selalu mengisi LiLA.
+
 - `growth_standards` siap untuk diisi standar resmi (abstraksi, bukan threshold medis sembarangan).
 
 ---
@@ -124,15 +129,15 @@ Jangan commit `.env` asli.
 
 Semua password: `password123` (documented, jangan dipakai di production)
 
-| Role | Email | Posyandu |
-|------|-------|----------|
-| ADMIN | admin@example.test | keempat posyandu |
-| ADMIN | admin.cutnyakdien@example.test | Cut Nyak Dien |
-| KADER | kader@example.test | Cut Nyak Dien |
-| KADER | kader.kartika@example.test | Kartika |
-| KADER | kader.kartini@example.test | Kartini |
-| KADER | kader.radenintan@example.test | Raden Intan |
-| ORANG_TUA | orangtua@example.test | posyandu anaknya sendiri |
+| Role      | Email                          | Posyandu                 |
+| --------- | ------------------------------ | ------------------------ |
+| ADMIN     | admin@example.test             | keempat posyandu         |
+| ADMIN     | admin.cutnyakdien@example.test | Cut Nyak Dien            |
+| KADER     | kader@example.test             | Cut Nyak Dien            |
+| KADER     | kader.kartika@example.test     | Kartika                  |
+| KADER     | kader.kartini@example.test     | Kartini                  |
+| KADER     | kader.radenintan@example.test  | Raden Intan              |
+| ORANG_TUA | orangtua@example.test          | posyandu anaknya sendiri |
 
 > Akun orang tua tertaut ke satu profil orang tua (`users.parent_id`) dan hanya melihat anaknya sendiri.
 
@@ -205,6 +210,7 @@ cd frontend; npm run dev
 ```
 
 Build production:
+
 ```bash
 cd frontend; npm run build
 cd backend; php artisan config:cache; php artisan route:cache
@@ -212,20 +218,40 @@ cd backend; php artisan config:cache; php artisan route:cache
 
 ---
 
-## 12. Testing
+## 12. Testing & Security
 
-`tests/Feature/RoleAndScopeTest.php` mengunci aturan yang diminta:
-jumlah role, isolasi posyandu untuk kader, pembatasan anak milik orang tua,
-hak tulis orang tua, modul kader/KIA, dan pemisahan vaksin vs vitamin.
+### Test Suites
+
+Project memiliki suite pengujian menyeluruh (58 tests, 313 assertions) yang mencakup fungsi aplikasi dan proteksi keamanan:
+
+- `tests/Feature/RoleAndScopeTest.php`: Aturan inti 3 role, data isolation per posyandu, dan batasan hak orang tua.
+- `tests/Feature/SecurityMatrixRegressionTest.php`: Matriks regresi keamanan lengkap lintas role (`ADMIN`, `KADER`, `ORANG_TUA`, `GUEST`) terhadap endpoint sensitif (`parents`, `users`, `reports`, `immunizations`, `children`).
+- `tests/Feature/SecurityPhaseOneAccessControlTest.php`: Proteksi IDOR, eskalasi privilese user, kontrol laporan, dan otorisasi hapus imunisasi.
+- `tests/Feature/SecurityPhaseTwoAuthTest.php`: Rate limiting brute force (login/forgot-password/reset-password), Sanctum token expiration (24 jam), dan CORS restriction.
+- `tests/Feature/SecurityPhaseThreePiiTest.php`: Masking PII pada data list/report (`Mask`, `HasPiiMasking`), sanitasi rekursif audit log.
+- `tests/Feature/SecurityPhaseFourValidationTest.php`: Validasi batasan medis antropometri (BB, TB, LK, LiLA wajib), NIK/KK 16 digit, dan format nomor telepon Indonesia.
+- `tests/Feature/SecurityPhaseFiveExportAndQueryTest.php`: Pencegahan CSV/Excel formula injection (`CsvSanitizer`) dan sanitasi wildcard query ILIKE (`SqlHelper::escapeLike`).
+
+Menjalankan test:
 
 ```bash
-cd backend; php artisan test
-# atau: vendor/bin/phpunit --testsuite=Feature
+cd backend
+php artisan test
+# atau test suite spesifik:
+# php artisan test --filter=SecurityMatrixRegressionTest
 ```
 
-Frontend belum ada test suite otomatis, verifikasi manual via UI.
+### Security Hardening Measures
 
-Security checklist per spec 65 sudah diimplementasikan di Policies & audit.
+1. **Rate Limiting**: Endpoint login dan password reset dibatasi 5 request/menit per kombinasi email dan IP address (`throttle:login`).
+2. **PII Masking**: NIK/KK disamarkan menjadi `3201********0001` dan nomor telepon menjadi `0812****789` pada tampilan daftar kader dan laporan. Unmasking hanya untuk detail (`show`) dan ADMIN.
+3. **Medical Bounds**: Antropometri dibatasi batas fisiologis (BB 1.5–35 kg, TB/PB 40–130 cm, LK 30–60 cm, LiLA 8–25 cm wajib).
+4. **Formula Injection Defense**: Seluruh data tabular pada export CSV/Excel disanitasi dari karakter awalan berbahaya (`=`, `+`, `-`, `@`, `\t`, `\r`) dengan prefix tanda petik tunggal (`'`).
+5. **SQL Wildcard Defense**: Karakter `%`, `_`, dan `\` pada input pencarian diescape sebelum disisipkan ke klausa PostgreSQL `ILIKE`.
+6. **Audit Sanitization**: Password, token, dan secret di-scrub secara rekursif dari seluruh log audit, dan nilai PII disamarkan otomatis.
+7. **Frontend Dirty Payload & No Masked PII**: Form update tidak mengirim string masked `*` kembali ke server (`buildDirtyPayload`).
+8. **Safe Error Handling**: Error API disaring (`apiErrorMessage`, `extractBlobErrorMessage`); stack trace, query SQL, dan pesan internal server tidak pernah ditampilkan ke pengguna.
+9. **Frontend Content Sanitization & Safe External Links**: Konten edukasi disanitasi via `sanitizeHtml` (DOMParser) dan backend `strip_tags`, card preview via `stripHtml`, seluruh external links menerapkan `rel="noopener noreferrer"`.
 
 ---
 

@@ -60,6 +60,11 @@ class User extends Authenticatable
         return $this->role === Role::ADMIN->value;
     }
 
+    public function isKader(): bool
+    {
+        return $this->role === Role::KADER->value;
+    }
+
     public function isOrangTua(): bool
     {
         return $this->role === Role::ORANG_TUA->value;

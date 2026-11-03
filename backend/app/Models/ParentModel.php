@@ -35,15 +35,27 @@ class ParentModel extends Model
     /**
      * Batasi daftar orang tua sesuai cakupan pengguna.
      * Orang tua hanya melihat profilnya sendiri, bukan database orang tua.
+     * Kader hanya melihat orang tua yang memiliki anak di posyandu binaannya.
      */
     public function scopeForUser($query, User $user)
     {
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
         if ($user->isOrangTua()) {
             return $user->parent_id
                 ? $query->where('id', $user->parent_id)
                 : $query->whereRaw('1 = 0');
         }
 
-        return $query;
+        $posyanduIds = $user->posyanduIds();
+        if (empty($posyanduIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('children', function ($q) use ($posyanduIds) {
+            $q->whereIn('posyandu_id', $posyanduIds);
+        });
     }
 }

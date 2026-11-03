@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { apiErrorMessage, apiPosyandu, apiSchedules } from '@/shared/lib/api'
+import { apiErrorMessage, apiPosyandu, apiSchedules, apiValidationErrors } from '@/shared/lib/api'
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/card'
 import { StatusBadge } from '@/shared/components/ui/badge'
 import { Button, EmptyState, ErrorState, Field, Input, Select, Spinner, Textarea } from '@/shared/components/ui/field'
@@ -71,6 +71,7 @@ export default function SchedulesPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [deleting, setDeleting] = useState<Jadwal | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -112,6 +113,7 @@ export default function SchedulesPage() {
     setEditing(null)
     setForm({ ...EMPTY_FORM, posyandu_id: posyanduFilter || String(posyandus[0]?.id ?? '') })
     setFormError(null)
+    setErrors({})
     setOpen(true)
   }
 
@@ -119,22 +121,39 @@ export default function SchedulesPage() {
     setEditing(s)
     setForm(toForm(s))
     setFormError(null)
+    setErrors({})
     setOpen(true)
   }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSaving(true)
     setFormError(null)
+    setErrors({})
+
+    const errs: Record<string, string> = {}
+    if (!form.posyandu_id) errs.posyandu_id = 'Posyandu wajib dipilih.'
+    if (!form.title.trim()) errs.title = 'Agenda / judul kegiatan wajib diisi.'
+    if (!form.date) errs.date = 'Tanggal kegiatan wajib diisi.'
+    if (form.start_time && form.end_time && form.end_time <= form.start_time) {
+      errs.end_time = 'Waktu selesai harus setelah waktu mulai.'
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs)
+      setFormError('Mohon periksa data formulir.')
+      return
+    }
+
+    setSaving(true)
 
     const payload = {
       posyandu_id: Number(form.posyandu_id),
-      title: form.title,
+      title: form.title.trim(),
       date: form.date,
       start_time: form.start_time || null,
       end_time: form.end_time || null,
-      location: form.location || null,
-      description: form.description || null,
+      location: form.location?.trim() || null,
+      description: form.description?.trim() || null,
       status: form.status,
     }
 
@@ -150,6 +169,8 @@ export default function SchedulesPage() {
       setOpen(false)
       await load()
     } catch (err) {
+      const fieldErrors = apiValidationErrors(err)
+      setErrors(fieldErrors)
       setFormError(apiErrorMessage(err))
     } finally {
       setSaving(false)
@@ -273,8 +294,16 @@ export default function SchedulesPage() {
             <form onSubmit={submit} className="p-6 space-y-4">
               {formError && <p className="text-sm text-red-600 bg-red-50 rounded-xl px-3 py-2">{formError}</p>}
 
-              <Field label="Posyandu" required>
-                <Select value={form.posyandu_id} onChange={set('posyandu_id')} required>
+              <Field label="Posyandu" required error={errors.posyandu_id}>
+                <Select
+                  value={form.posyandu_id}
+                  onChange={(e) => {
+                    set('posyandu_id')(e)
+                    if (errors.posyandu_id) setErrors({ ...errors, posyandu_id: '' })
+                  }}
+                  hasError={!!errors.posyandu_id}
+                  required
+                >
                   <option value="">-- Pilih posyandu --</option>
                   {posyandus.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -284,37 +313,82 @@ export default function SchedulesPage() {
                 </Select>
               </Field>
 
-              <Field label="Agenda / Judul Kegiatan" required>
+              <Field label="Agenda / Judul Kegiatan" required error={errors.title}>
                 <Input
                   required
                   value={form.title}
-                  onChange={set('title')}
+                  hasError={!!errors.title}
+                  onChange={(e) => {
+                    set('title')(e)
+                    if (errors.title) setErrors({ ...errors, title: '' })
+                  }}
                   placeholder="Posyandu Rutin Bulanan"
                 />
               </Field>
 
               <div className="grid gap-4 sm:grid-cols-3">
-                <Field label="Tanggal" required>
-                  <Input required type="date" value={form.date} onChange={set('date')} />
+                <Field label="Tanggal" required error={errors.date}>
+                  <Input
+                    required
+                    type="date"
+                    hasError={!!errors.date}
+                    value={form.date}
+                    onChange={(e) => {
+                      set('date')(e)
+                      if (errors.date) setErrors({ ...errors, date: '' })
+                    }}
+                  />
                 </Field>
-                <Field label="Jam Mulai">
-                  <Input type="time" value={form.start_time} onChange={set('start_time')} />
+                <Field label="Jam Mulai" error={errors.start_time}>
+                  <Input
+                    type="time"
+                    hasError={!!errors.start_time}
+                    value={form.start_time}
+                    onChange={(e) => {
+                      set('start_time')(e)
+                      if (errors.start_time) setErrors({ ...errors, start_time: '' })
+                    }}
+                  />
                 </Field>
-                <Field label="Jam Selesai">
-                  <Input type="time" value={form.end_time} onChange={set('end_time')} />
+                <Field label="Jam Selesai" error={errors.end_time}>
+                  <Input
+                    type="time"
+                    hasError={!!errors.end_time}
+                    value={form.end_time}
+                    onChange={(e) => {
+                      set('end_time')(e)
+                      if (errors.end_time) setErrors({ ...errors, end_time: '' })
+                    }}
+                  />
                 </Field>
               </div>
 
-              <Field label="Lokasi">
-                <Input value={form.location} onChange={set('location')} />
+              <Field label="Lokasi" error={errors.location}>
+                <Input
+                  hasError={!!errors.location}
+                  value={form.location}
+                  onChange={(e) => {
+                    set('location')(e)
+                    if (errors.location) setErrors({ ...errors, location: '' })
+                  }}
+                />
               </Field>
 
-              <Field label="Keterangan">
-                <Textarea rows={2} value={form.description} onChange={set('description')} />
+              <Field label="Keterangan" error={errors.description}>
+                <Textarea
+                  rows={2}
+                  hasError={!!errors.description}
+                  value={form.description}
+                  onChange={(e) => {
+                    set('description')(e)
+                    if (errors.description) setErrors({ ...errors, description: '' })
+                  }}
+                />
               </Field>
 
-              <Field label="Status" required>
+              <Field label="Status" required error={errors.status}>
                 <Select
+                  hasError={!!errors.status}
                   value={form.status}
                   onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as ScheduleStatus }))}
                 >

@@ -24,10 +24,13 @@ Route::get('/edukasi', [EducationController::class, 'publicIndex']);
 Route::get('/edukasi/categories', [EducationController::class, 'categories']);
 Route::get('/edukasi/{slug}', [EducationController::class, 'show']);
 
-// Auth
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+// Auth (Throttled by email + IP)
+Route::middleware('throttle:login')->group(function () {
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/auth/login', [AuthController::class, 'login']);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -89,14 +92,16 @@ Route::middleware('auth:sanctum')->group(function () {
     // Schedules
     Route::apiResource('schedules', ScheduleController::class);
 
-    // Reports
-    Route::get('/reports/anak', [ReportController::class, 'anak']);
-    Route::get('/reports/pemeriksaan', [ReportController::class, 'pemeriksaan']);
-    Route::get('/reports/pertumbuhan', [ReportController::class, 'pertumbuhan']);
-    Route::get('/reports/imunisasi', [ReportController::class, 'imunisasi']);
-    Route::get('/reports/follow-up', [ReportController::class, 'followUp']);
-    Route::get('/reports/bumil', [ReportController::class, 'bumil']);
-    Route::get('/reports/statistik', [ReportController::class, 'statistik']);
+    // Reports (Hanya ADMIN dan KADER)
+    Route::middleware('role:ADMIN,KADER')->group(function () {
+        Route::get('/reports/anak', [ReportController::class, 'anak']);
+        Route::get('/reports/pemeriksaan', [ReportController::class, 'pemeriksaan']);
+        Route::get('/reports/pertumbuhan', [ReportController::class, 'pertumbuhan']);
+        Route::get('/reports/imunisasi', [ReportController::class, 'imunisasi']);
+        Route::get('/reports/follow-up', [ReportController::class, 'followUp']);
+        Route::get('/reports/bumil', [ReportController::class, 'bumil']);
+        Route::get('/reports/statistik', [ReportController::class, 'statistik']);
+    });
 
     // Users
     Route::apiResource('users', UserController::class);

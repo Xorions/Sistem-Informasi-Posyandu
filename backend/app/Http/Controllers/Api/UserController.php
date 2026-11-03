@@ -6,6 +6,7 @@ use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Support\SqlHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -19,9 +20,10 @@ class UserController extends Controller
 
         $q = User::with(['posyandus', 'parent', 'kader']);
         if ($search = $request->query('search')) {
-            $q->where(function ($sub) use ($search) {
-                $sub->where('name', 'ilike', "%$search%")
-                    ->orWhere('email', 'ilike', "%$search%");
+            $escaped = SqlHelper::escapeLike($search);
+            $q->where(function ($sub) use ($escaped) {
+                $sub->where('name', 'ilike', "%{$escaped}%")
+                    ->orWhere('email', 'ilike', "%{$escaped}%");
             });
         }
         if ($role = $request->query('role')) {
@@ -80,8 +82,17 @@ class UserController extends Controller
 
     public function show(Request $request, User $user)
     {
-        if ($request->user()->role !== Role::ADMIN->value && $request->user()->id !== $user->id) {
+        $isAdmin = $request->user()->role === Role::ADMIN->value;
+
+        if (! $isAdmin && $request->user()->id !== $user->id) {
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        if (! $isAdmin) {
+            return response()->json([
+                'success' => true,
+                'data' => $user->makeHidden(['role', 'is_active', 'parent_id']),
+            ]);
         }
 
         return response()->json([
@@ -102,13 +113,13 @@ class UserController extends Controller
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|unique:users,email,'.$user->id,
             'password' => 'nullable|min:8|confirmed',
-            // Hanya ADMIN yang boleh mengubah role.
-            'role' => ($isAdmin ? 'sometimes' : 'prohibited').'|in:'.implode(',', Role::values()),
+            // Hanya ADMIN yang boleh mengubah role, status aktif, profil parent, dan penugasan posyandu.
+            'role' => ($isAdmin ? 'sometimes|in:'.implode(',', Role::values()) : 'prohibited'),
             'phone' => 'nullable|string|max:20',
-            'is_active' => 'nullable|boolean',
-            'parent_id' => 'nullable|exists:parents,id',
-            'posyandu_ids' => 'nullable|array',
-            'posyandu_ids.*' => 'exists:posyandu,id',
+            'is_active' => ($isAdmin ? 'nullable|boolean' : 'prohibited'),
+            'parent_id' => ($isAdmin ? 'nullable|exists:parents,id' : 'prohibited'),
+            'posyandu_ids' => ($isAdmin ? 'nullable|array' : 'prohibited'),
+            'posyandu_ids.*' => ($isAdmin ? 'exists:posyandu,id' : 'prohibited'),
         ]);
 
         if (array_key_exists('password', $data)) {
@@ -121,12 +132,12 @@ class UserController extends Controller
 
         $old = $user->only(['name', 'email', 'role', 'phone', 'is_active', 'parent_id']);
 
-        $posyanduIds = $data['posyandu_ids'] ?? null;
+        $posyanduIds = $isAdmin ? ($data['posyandu_ids'] ?? null) : null;
         unset($data['posyandu_ids']);
 
         $user->update($data);
 
-        if (! is_null($posyanduIds)) {
+        if ($isAdmin && ! is_null($posyanduIds)) {
             $user->posyandus()->sync($posyanduIds);
         }
 
@@ -138,7 +149,9 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'User diperbarui',
-            'data' => $user->load(['posyandus', 'parent']),
+            'data' => $isAdmin
+                ? $user->load(['posyandus', 'parent'])
+                : $user->makeHidden(['role', 'is_active', 'parent_id']),
         ]);
     }
 

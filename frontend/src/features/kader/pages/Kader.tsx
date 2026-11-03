@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { apiErrorMessage, apiKader, apiPosyandu, apiUsers } from '@/shared/lib/api'
+import { apiErrorMessage, apiKader, apiPosyandu, apiUsers, apiValidationErrors } from '@/shared/lib/api'
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/card'
 import { StatusBadge } from '@/shared/components/ui/badge'
 import { Button, EmptyState, ErrorState, Field, Input, Select, Spinner } from '@/shared/components/ui/field'
@@ -9,6 +9,7 @@ import { useDebounce } from '@/shared/hooks/useDebounce'
 import { useAuth } from '@/features/auth/AuthContext'
 import { can } from '@/shared/lib/rbac'
 import { EMPTY_PAGE_META, type ApiMeta, type Kader, type Posyandu, type User } from '@/shared/types'
+import { isMasked, isValidNik, isValidPhone, buildDirtyPayload } from '@/shared/lib/utils'
 
 type FormState = {
   posyandu_id: string
@@ -38,24 +39,39 @@ const EMPTY_FORM: FormState = {
 
 const PENDIDIKAN = ['SD', 'SMP', 'SMA', 'D1', 'D3', 'S1', 'S2', 'S3']
 
-function toForm(k: Kader): FormState {
+function toForm(k: Kader): { form: FormState; masks: { [key: string]: string } } {
+  const masks: { [key: string]: string } = {}
+  let nik = k.nik_kader ?? ''
+  if (isMasked(nik)) {
+    masks.nik_kader = nik
+    nik = ''
+  }
+  let hp = k.no_hp ?? ''
+  if (isMasked(hp)) {
+    masks.no_hp = hp
+    hp = ''
+  }
   return {
-    posyandu_id: String(k.posyandu_id ?? ''),
-    user_id: String(k.user_id ?? ''),
-    nama_kader: k.nama_kader ?? '',
-    nik_kader: k.nik_kader ?? '',
-    no_hp: k.no_hp ?? '',
-    jabatan: k.jabatan ?? '',
-    pendidikan: k.pendidikan ?? '',
-    alamat: k.alamat ?? '',
-    tanggal_mulai_tugas: k.tanggal_mulai_tugas ?? '',
-    status: k.status,
+    form: {
+      posyandu_id: String(k.posyandu_id ?? ''),
+      user_id: String(k.user_id ?? ''),
+      nama_kader: k.nama_kader ?? '',
+      nik_kader: nik,
+      no_hp: hp,
+      jabatan: k.jabatan ?? '',
+      pendidikan: k.pendidikan ?? '',
+      alamat: k.alamat ?? '',
+      tanggal_mulai_tugas: k.tanggal_mulai_tugas ?? '',
+      status: k.status,
+    },
+    masks,
   }
 }
 
 export default function KaderPage() {
   const toast = useToast()
-  const { isAdmin } = useAuth()
+  const { role, isAdmin } = useAuth()
+  const canManage = can(role, 'manage-kader')
 
   const [rows, setRows] = useState<Kader[]>([])
   const [posyandus, setPosyandus] = useState<Posyandu[]>([])
@@ -73,8 +89,11 @@ export default function KaderPage() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Kader | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [initialForm, setInitialForm] = useState<FormState>(EMPTY_FORM)
+  const [maskedPlaceholders, setMaskedPlaceholders] = useState<{ [key: string]: string }>({})
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [deleting, setDeleting] = useState<Kader | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -124,41 +143,122 @@ export default function KaderPage() {
 
   const openCreate = () => {
     setEditing(null)
-    setForm({ ...EMPTY_FORM, posyandu_id: posyanduFilter || String(posyandus[0]?.id ?? '') })
+    const newForm = { ...EMPTY_FORM, posyandu_id: posyanduFilter || String(posyandus[0]?.id ?? '') }
+    setForm(newForm)
+    setInitialForm(newForm)
+    setMaskedPlaceholders({})
     setFormError(null)
+    setErrors({})
     setOpen(true)
   }
 
-  const openEdit = (k: Kader) => {
+  const openEdit = async (k: Kader) => {
     setEditing(k)
-    setForm(toForm(k))
+    const parsed = toForm(k)
+    setForm(parsed.form)
+    setInitialForm(parsed.form)
+    setMaskedPlaceholders(parsed.masks)
     setFormError(null)
+    setErrors({})
     setOpen(true)
+    try {
+      const res = await apiKader.get(k.id)
+      if (res) {
+        const fullParsed = toForm(res)
+        setForm(fullParsed.form)
+        setInitialForm(fullParsed.form)
+        setMaskedPlaceholders(fullParsed.masks)
+      }
+    } catch {
+      // fallback to list data
+    }
   }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSaving(true)
     setFormError(null)
+    setErrors({})
 
-    const payload = {
-      posyandu_id: Number(form.posyandu_id),
-      user_id: form.user_id ? Number(form.user_id) : null,
-      nama_kader: form.nama_kader,
-      nik_kader: form.nik_kader || null,
-      no_hp: form.no_hp || null,
-      jabatan: form.jabatan || null,
-      pendidikan: form.pendidikan || null,
-      alamat: form.alamat || null,
-      tanggal_mulai_tugas: form.tanggal_mulai_tugas || null,
-      status: form.status,
+    const errs: Record<string, string> = {}
+    if (!form.nama_kader.trim()) {
+      errs.nama_kader = 'Nama kader wajib diisi.'
     }
+    if (!form.posyandu_id) {
+      errs.posyandu_id = 'Posyandu wajib dipilih.'
+    }
+
+    if (isMasked(form.nik_kader)) {
+      errs.nik_kader = 'Data tersamar tidak boleh dikirim langsung.'
+    } else if (form.nik_kader && !isValidNik(form.nik_kader)) {
+      errs.nik_kader = 'NIK kader harus tepat 16 digit angka.'
+    }
+
+    if (isMasked(form.no_hp)) {
+      errs.no_hp = 'Data tersamar tidak boleh dikirim langsung.'
+    } else if (form.no_hp && !isValidPhone(form.no_hp)) {
+      errs.no_hp = 'Format nomor HP tidak valid (contoh: 081234567890).'
+    }
+
+    const today = new Date().toISOString().substring(0, 10)
+    if (form.tanggal_mulai_tugas && form.tanggal_mulai_tugas > today) {
+      errs.tanggal_mulai_tugas = 'Tanggal mulai tugas tidak boleh di masa depan.'
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs)
+      setFormError('Mohon perbaiki isian form yang bermasalah.')
+      return
+    }
+
+    setSaving(true)
 
     try {
       if (editing) {
-        await apiKader.update(editing.id, payload)
+        const dirty = buildDirtyPayload(
+          {
+            posyandu_id: Number(form.posyandu_id),
+            user_id: form.user_id ? Number(form.user_id) : null,
+            nama_kader: form.nama_kader,
+            nik_kader: form.nik_kader || null,
+            no_hp: form.no_hp || null,
+            jabatan: form.jabatan || null,
+            pendidikan: form.pendidikan || null,
+            alamat: form.alamat || null,
+            tanggal_mulai_tugas: form.tanggal_mulai_tugas || null,
+            status: form.status,
+          },
+          {
+            posyandu_id: Number(initialForm.posyandu_id),
+            user_id: initialForm.user_id ? Number(initialForm.user_id) : null,
+            nama_kader: initialForm.nama_kader,
+            nik_kader: initialForm.nik_kader || null,
+            no_hp: initialForm.no_hp || null,
+            jabatan: initialForm.jabatan || null,
+            pendidikan: initialForm.pendidikan || null,
+            alamat: initialForm.alamat || null,
+            tanggal_mulai_tugas: initialForm.tanggal_mulai_tugas || null,
+            status: initialForm.status,
+          },
+          maskedPlaceholders
+        )
+
+        if (Object.keys(dirty).length > 0) {
+          await apiKader.update(editing.id, dirty as any)
+        }
         toast.show('Data kader berhasil diperbarui')
       } else {
+        const payload = {
+          posyandu_id: Number(form.posyandu_id),
+          user_id: form.user_id ? Number(form.user_id) : null,
+          nama_kader: form.nama_kader,
+          nik_kader: form.nik_kader || null,
+          no_hp: form.no_hp || null,
+          jabatan: form.jabatan || null,
+          pendidikan: form.pendidikan || null,
+          alamat: form.alamat || null,
+          tanggal_mulai_tugas: form.tanggal_mulai_tugas || null,
+          status: form.status,
+        }
         await apiKader.create(payload)
         toast.show('Kader berhasil ditambahkan')
       }
@@ -166,6 +266,8 @@ export default function KaderPage() {
       setOpen(false)
       await load()
     } catch (err) {
+      const fieldErrors = apiValidationErrors(err)
+      setErrors(fieldErrors)
       setFormError(apiErrorMessage(err))
     } finally {
       setSaving(false)
@@ -199,7 +301,7 @@ export default function KaderPage() {
           title="Kader dan Petugas Posyandu"
           subtitle="Data petugas yang bertugas di keempat posyandu beserta jabatan dan akun loginnya."
           action={
-            can('ADMIN', 'manage-kader') ? (
+            canManage ? (
               <Button onClick={openCreate}>+ Tambah Kader</Button>
             ) : (
               <span className="text-xs text-slate-500">Mode lihat saja</span>
@@ -263,7 +365,7 @@ export default function KaderPage() {
                         <StatusBadge status={k.status} />
                       </td>
                       <td className="py-3 text-right space-x-2 whitespace-nowrap">
-                        {can('ADMIN', 'manage-kader') && (
+                        {canManage && (
                           <>
                             <button onClick={() => openEdit(k)} className="text-teal-600 hover:text-teal-800 text-xs font-medium">
                               Ubah
@@ -313,14 +415,34 @@ export default function KaderPage() {
               {formError && <p className="text-sm text-red-600 bg-red-50 rounded-xl px-3 py-2">{formError}</p>}
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Nama Kader" required>
-                  <Input value={form.nama_kader} onChange={set('nama_kader')} required maxLength={255} />
+                <Field label="Nama Kader" required error={errors.nama_kader}>
+                  <Input value={form.nama_kader} onChange={set('nama_kader')} required maxLength={255} hasError={!!errors.nama_kader} />
                 </Field>
-                <Field label="NIK" hint="16 digit tanpa tanda hubung">
-                  <Input value={form.nik_kader} onChange={set('nik_kader')} maxLength={20} />
+                <Field
+                  label="NIK"
+                  error={errors.nik_kader}
+                  hint={
+                    maskedPlaceholders.nik_kader
+                      ? `Tersembunyi (${maskedPlaceholders.nik_kader}) — isi hanya untuk mengganti`
+                      : '16 digit angka'
+                  }
+                >
+                  <Input
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={form.nik_kader}
+                    onChange={(e) => setForm((f) => ({ ...f, nik_kader: e.target.value.replace(/\D/g, '').slice(0, 16) }))}
+                    maxLength={16}
+                    hasError={!!errors.nik_kader}
+                    placeholder={
+                      maskedPlaceholders.nik_kader
+                        ? `Tersembunyi (${maskedPlaceholders.nik_kader})`
+                        : '16 digit NIK'
+                    }
+                  />
                 </Field>
-                <Field label="Posyandu" required>
-                  <Select value={form.posyandu_id} onChange={set('posyandu_id')} required>
+                <Field label="Posyandu" required error={errors.posyandu_id}>
+                  <Select value={form.posyandu_id} onChange={set('posyandu_id')} required hasError={!!errors.posyandu_id}>
                     <option value="">-- Pilih posyandu --</option>
                     {posyandus.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -329,14 +451,34 @@ export default function KaderPage() {
                     ))}
                   </Select>
                 </Field>
-                <Field label="Jabatan">
-                  <Input value={form.jabatan} onChange={set('jabatan')} placeholder="Ketua Posyandu" maxLength={100} />
+                <Field label="Jabatan" error={errors.jabatan}>
+                  <Input value={form.jabatan} onChange={set('jabatan')} placeholder="Ketua Posyandu" maxLength={100} hasError={!!errors.jabatan} />
                 </Field>
-                <Field label="Nomor HP">
-                  <Input value={form.no_hp} onChange={set('no_hp')} maxLength={20} placeholder="08xxxxxxxxxx" />
+                <Field
+                  label="Nomor HP"
+                  error={errors.no_hp}
+                  hint={
+                    maskedPlaceholders.no_hp
+                      ? `Tersembunyi (${maskedPlaceholders.no_hp}) — isi hanya untuk mengganti`
+                      : undefined
+                  }
+                >
+                  <Input
+                    type="tel"
+                    inputMode="tel"
+                    value={form.no_hp}
+                    onChange={set('no_hp')}
+                    maxLength={15}
+                    hasError={!!errors.no_hp}
+                    placeholder={
+                      maskedPlaceholders.no_hp
+                        ? `Tersembunyi (${maskedPlaceholders.no_hp})`
+                        : '08xxxxxxxxxx'
+                    }
+                  />
                 </Field>
-                <Field label="Pendidikan">
-                  <Select value={form.pendidikan} onChange={set('pendidikan')}>
+                <Field label="Pendidikan" error={errors.pendidikan}>
+                  <Select value={form.pendidikan} onChange={set('pendidikan')} hasError={!!errors.pendidikan}>
                     <option value="">-- Pilih --</option>
                     {PENDIDIKAN.map((p) => (
                       <option key={p} value={p}>
@@ -345,24 +487,24 @@ export default function KaderPage() {
                     ))}
                   </Select>
                 </Field>
-                <Field label="Tanggal Mulai Tugas">
-                  <Input type="date" value={form.tanggal_mulai_tugas} onChange={set('tanggal_mulai_tugas')} />
+                <Field label="Tanggal Mulai Tugas" error={errors.tanggal_mulai_tugas}>
+                  <Input type="date" max={new Date().toISOString().substring(0, 10)} value={form.tanggal_mulai_tugas} onChange={set('tanggal_mulai_tugas')} hasError={!!errors.tanggal_mulai_tugas} />
                 </Field>
-                <Field label="Status">
-                  <Select value={form.status} onChange={set('status')}>
+                <Field label="Status" error={errors.status}>
+                  <Select value={form.status} onChange={set('status')} hasError={!!errors.status}>
                     <option value="active">Aktif</option>
                     <option value="inactive">Tidak Aktif</option>
                   </Select>
                 </Field>
               </div>
 
-              <Field label="Alamat">
-                <Input value={form.alamat} onChange={set('alamat')} />
+              <Field label="Alamat" error={errors.alamat}>
+                <Input value={form.alamat} onChange={set('alamat')} hasError={!!errors.alamat} />
               </Field>
 
               {isAdmin && (
-                <Field label="Tautkan ke Akun Login" hint="Opsional. Akun KADER agar bisa masuk dan mencatat pemeriksaan.">
-                  <Select value={form.user_id} onChange={set('user_id')}>
+                <Field label="Tautkan ke Akun Login" hint="Opsional. Akun KADER agar bisa masuk dan mencatat pemeriksaan." error={errors.user_id}>
+                  <Select value={form.user_id} onChange={set('user_id')} hasError={!!errors.user_id}>
                     <option value="">-- Tidak ditautkan --</option>
                     {users.map((u) => (
                       <option key={u.id} value={u.id}>

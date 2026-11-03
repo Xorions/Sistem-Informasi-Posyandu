@@ -18,9 +18,22 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  // Sudah punya sesi valid? Langsung ke dashboard.
+  // Periksa pesan sesi kedaluwarsa dari redirect 401
   useEffect(() => {
-    if (!authLoading && user) nav(ROUTES.dashboard, { replace: true })
+    const expiredMsg = sessionStorage.getItem('session_expired_message')
+    if (expiredMsg) {
+      sessionStorage.removeItem('session_expired_message')
+      toast.show(expiredMsg, 'error')
+    }
+  }, [toast])
+
+  // Sudah punya sesi valid? Langsung ke rute tujuan semula atau dashboard.
+  useEffect(() => {
+    if (!authLoading && user) {
+      const redirect = sessionStorage.getItem('redirect_after_login') || ROUTES.dashboard
+      sessionStorage.removeItem('redirect_after_login')
+      nav(redirect, { replace: true })
+    }
   }, [authLoading, user, nav])
 
   const handle = async (e: React.FormEvent) => {
@@ -30,7 +43,9 @@ export default function Login() {
     try {
       await login(email, password)
       toast.show('Login berhasil')
-      nav(ROUTES.dashboard, { replace: true })
+      const redirect = sessionStorage.getItem('redirect_after_login') || ROUTES.dashboard
+      sessionStorage.removeItem('redirect_after_login')
+      nav(redirect, { replace: true })
     } catch (err) {
       toast.show(apiErrorMessage(err, 'Login gagal. Periksa email dan password.'), 'error')
     } finally {

@@ -8,6 +8,7 @@ use App\Http\Resources\EducationResource;
 use App\Models\Education;
 use App\Models\EducationCategory;
 use App\Services\AuditLogService;
+use App\Support\SqlHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -30,7 +31,8 @@ class EducationController extends Controller
             $q->where('category_id', $cat);
         }
         if ($search = $request->query('search')) {
-            $q->where('title', 'ilike', "%$search%");
+            $escaped = SqlHelper::escapeLike($search);
+            $q->where('title', 'ilike', "%{$escaped}%");
         }
         $q->latest('published_at')->latest();
         $perPage = min((int) $request->query('per_page', 10), 100);
@@ -46,7 +48,8 @@ class EducationController extends Controller
             $q->where('category_id', $cat);
         }
         if ($search = $request->query('search')) {
-            $q->where('title', 'ilike', "%$search%");
+            $escaped = SqlHelper::escapeLike($search);
+            $q->where('title', 'ilike', "%{$escaped}%");
         }
         $q->latest('published_at');
         $perPage = min((int) $request->query('per_page', 10), 100);
@@ -157,12 +160,16 @@ class EducationController extends Controller
 
     private function sanitize(string $html): string
     {
-        // Remove script tags and event handlers
-        $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
-        $html = preg_replace('/\son\w+="[^"]*"/i', '', $html);
-        $html = preg_replace("/\son\w+='[^']*'/i", '', $html);
+        // Allowlist basic: safe tags
+        $allowedTags = '<p><br><b><strong><i><em><u><s><h2><h3><h4><h5><h6><ul><ol><li><blockquote><a><hr><table><thead><tbody><tr><th><td><img>';
+        $clean = strip_tags($html, $allowedTags);
 
-        // Allowlist basic: you could use HTMLPurifier but for MVP strip malicious
-        return $html;
+        // Strip event handlers (onload, onerror, onclick, etc.) with or without quotes
+        $clean = preg_replace('/(\s|\/)on[a-z]+(\s*=\s*(?:[^\s>"\']+|"[^"]*"|\'[^\']*\'))?/i', '', $clean);
+
+        // Strip javascript: or data: pseudo-protocols in href and src
+        $clean = preg_replace('/(href|src)\s*=\s*(["\']?)\s*(?:javascript|data):[^>"\']*\2/i', '$1="#"', $clean);
+
+        return $clean;
     }
 }

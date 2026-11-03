@@ -8,6 +8,7 @@
     "dev:api": "cd ../backend && php artisan serve --host=127.0.0.1 --port=8000",
     "dev:web": "vite",
     "build": "tsc && vite build",
+    "lint": "tsc --noEmit",
     "sync:public": "node scripts/sync-public.mjs",
     "build:prod": "tsc && vite build && node scripts/sync-public.mjs",
     "preview": "vite preview",

@@ -56,6 +56,10 @@ class ImmunizationController extends Controller
 
     public function store(StoreImmunizationRequest $request)
     {
+        if ($request->user()->isOrangTua()) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
         $child = Child::findOrFail($request->child_id);
 
         if (! $request->user()->canAccessPosyandu($child->posyandu_id)) {
@@ -93,7 +97,7 @@ class ImmunizationController extends Controller
 
     public function update(UpdateImmunizationRequest $request, Immunization $immunization)
     {
-        if (! $request->user()->canAccessPosyandu($immunization->child->posyandu_id)) {
+        if ($request->user()->isOrangTua() || ! $request->user()->canAccessPosyandu($immunization->child->posyandu_id)) {
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
@@ -112,14 +116,15 @@ class ImmunizationController extends Controller
 
     public function destroy(Request $request, Immunization $immunization)
     {
-        if (! $request->user()->canAccessPosyandu($immunization->child->posyandu_id)) {
+        if ($request->user()->isOrangTua() || ! $request->user()->canAccessPosyandu($immunization->child->posyandu_id)) {
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
+        $id = $immunization->id;
         $old = $immunization->only(['jenis', 'vaccine_name', 'vaccination_date', 'status']);
         $immunization->delete();
 
-        AuditLogService::log('DELETE', 'immunizations', $immunization->id, $old, null);
+        AuditLogService::log('DELETE', 'immunizations', $id, $old, null);
 
         return response()->json(['success' => true, 'message' => 'Data pemberian dihapus']);
     }

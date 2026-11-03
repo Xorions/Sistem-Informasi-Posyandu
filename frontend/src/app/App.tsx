@@ -1,6 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { ToastProvider } from '@/shared/components/ui/toast'
+import { AccessDeniedState } from '@/shared/components/ui/field'
 import Layout from '@/shared/components/layout/Layout'
 import Login from '@/features/auth/pages/Login'
 import Dashboard from '@/features/dashboard/pages/Dashboard'
@@ -57,18 +58,18 @@ function RequirePermission({
 
   if (!can(role, permission)) {
     return (
-      <div className="p-10 text-center">
-        <div className="w-12 h-12 mx-auto rounded-2xl bg-red-50 flex items-center justify-center text-red-500 text-xl">
-          !
-        </div>
-        <p className="mt-3 font-medium text-slate-800">Akses ditolak</p>
-        <p className="mt-1 text-sm text-slate-500">
-          Role Anda tidak memiliki izin untuk membuka halaman ini.
-        </p>
-        <a href={ROUTES.dashboard} className="inline-block mt-4 text-teal-600 hover:text-teal-800 text-sm font-medium">
-          Kembali ke Dashboard
-        </a>
-      </div>
+      <AccessDeniedState
+        title="Akses ditolak"
+        message="Role Anda tidak memiliki izin untuk membuka halaman ini."
+        action={
+          <Link
+            to={ROUTES.dashboard}
+            className="inline-block px-4 py-2 rounded-xl bg-teal-600 text-white text-sm font-medium hover:bg-teal-700"
+          >
+            Kembali ke Dashboard
+          </Link>
+        }
+      />
     )
   }
 
@@ -79,9 +80,12 @@ function NotFound() {
   return (
     <div className="p-10 text-center">
       <p className="font-medium text-slate-800">404 - Halaman tidak ditemukan</p>
-      <a href={ROUTES.dashboard} className="inline-block mt-4 text-teal-600 hover:text-teal-800 text-sm font-medium">
+      <Link
+        to={ROUTES.dashboard}
+        className="inline-block mt-4 text-teal-600 hover:text-teal-800 text-sm font-medium"
+      >
         Kembali ke Dashboard
-      </a>
+      </Link>
     </div>
   )
 }

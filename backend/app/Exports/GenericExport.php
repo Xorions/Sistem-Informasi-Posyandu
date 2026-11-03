@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Support\CsvSanitizer;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 
@@ -18,10 +19,11 @@ class GenericExport implements FromCollection, WithHeadings
     {
         return $this->collection->map(function ($item) {
             $arr = is_array($item) ? $item : (method_exists($item, 'toArray') ? $item->toArray() : (array) $item);
-            // flatten nested
+            // flatten nested and sanitize formula injection
             $flat = [];
             foreach ($arr as $k => $v) {
-                $flat[$k] = is_array($v) || is_object($v) ? json_encode($v) : $v;
+                $val = is_array($v) || is_object($v) ? json_encode($v) : $v;
+                $flat[$k] = CsvSanitizer::sanitizeValue($val);
             }
 
             return $flat;
@@ -36,6 +38,6 @@ class GenericExport implements FromCollection, WithHeadings
         $first = $this->collection->first();
         $arr = is_array($first) ? $first : (method_exists($first, 'toArray') ? $first->toArray() : (array) $first);
 
-        return array_keys($arr);
+        return array_map([CsvSanitizer::class, 'sanitizeValue'], array_keys($arr));
     }
 }

@@ -7,6 +7,7 @@ use App\Http\Requests\StorePosyanduRequest;
 use App\Http\Resources\PosyanduResource;
 use App\Models\Posyandu;
 use App\Services\AuditLogService;
+use App\Support\SqlHelper;
 use Illuminate\Http\Request;
 
 class PosyanduController extends Controller
@@ -20,8 +21,9 @@ class PosyanduController extends Controller
             $q->whereIn('id', $ids);
         }
         if ($search = $request->query('search')) {
-            $q->where(function ($qq) use ($search) {
-                $qq->where('nama_posyandu', 'ilike', "%$search%")->orWhere('kode_posyandu', 'ilike', "%$search%");
+            $escaped = SqlHelper::escapeLike($search);
+            $q->where(function ($qq) use ($escaped) {
+                $qq->where('nama_posyandu', 'ilike', "%{$escaped}%")->orWhere('kode_posyandu', 'ilike', "%{$escaped}%");
             });
         }
         if ($request->query('status')) {

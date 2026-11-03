@@ -19,20 +19,10 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-function readCachedUser(): User | null {
-  const raw = localStorage.getItem(CONFIG.USER_KEY)
-
-  if (!raw) return null
-
-  try {
-    return JSON.parse(raw) as User
-  } catch {
-    return null
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(readCachedUser)
+  // Keamanan: user dan role TIDAK BOLEH dibaca dari localStorage karena bisa dimanipulasi di browser.
+  // Selalu inisialisasi null dan verifikasi ulang ke GET /api/user pada setiap pemuatan aplikasi.
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   const clearSession = useCallback(() => {
@@ -52,7 +42,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const u = (await apiAuth.me()) as User
 
       setUser(u)
-      localStorage.setItem(CONFIG.USER_KEY, JSON.stringify(u))
     } catch {
       clearSession()
     } finally {
@@ -68,7 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await apiAuth.login(email, password)
 
     localStorage.setItem(CONFIG.TOKEN_KEY, res.token)
-    localStorage.setItem(CONFIG.USER_KEY, JSON.stringify(res.user))
 
     setUser(res.user as User)
 

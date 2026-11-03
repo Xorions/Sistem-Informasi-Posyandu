@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Kader;
 use App\Models\Posyandu;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 /**
@@ -113,7 +114,7 @@ class KaderSeeder extends Seeder
             );
 
             // Tautkan ke akun login KADER pada posyandu yang sama bila tersedia.
-            $user = \App\Models\User::where('role', 'KADER')
+            $user = User::where('role', 'KADER')
                 ->whereHas('posyandus', fn ($q) => $q->where('posyandu_id', $posyandu->id))
                 ->first();
 
