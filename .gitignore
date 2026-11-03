@@ -1,26 +1,67 @@
+# Environment & Secrets
 .env
 .env.*
+.env.backup
+.env.production
 !.env.example
+
+# Dependencies
 **/node_modules/
 **/vendor/
+
+# Build & Dist
 **/dist/
+dist-ssr/
 backend/public/assets/
+backend/public/build/
+backend/public/hot
+backend/public/storage
+
+# Logs
+*.log
+logs/
 backend/storage/logs/*
 !backend/storage/logs/.gitignore
+
+# Framework Cache & Generated Files
+backend/bootstrap/cache/*.php
+!backend/bootstrap/cache/.gitignore
 backend/storage/framework/cache/data/*
 !backend/storage/framework/cache/data/.gitignore
+backend/storage/framework/cache/laravel-excel/
 backend/storage/framework/sessions/*
 !backend/storage/framework/sessions/.gitignore
 backend/storage/framework/views/*
 !backend/storage/framework/views/.gitignore
+backend/storage/framework/testing/*
+!backend/storage/framework/testing/.gitignore
+backend/storage/*.key
+backend/storage/pail/
+
+# Testing & Coverage
 **/.phpunit.cache/
 **/.phpunit.result.cache
 **/coverage/
+
+# Auth & Packages
 **/auth.json
+
+# IDE & Editors
 .idea/
 .vscode/
+!.vscode/extensions.json
+.fleet/
+.zed/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Operating System
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Backup lokal project, tidak perlu masuk repo
+# Backup lokal project
 Posyandu Terpadu - Copy/

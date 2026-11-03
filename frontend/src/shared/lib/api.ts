@@ -108,12 +108,42 @@ api.interceptors.response.use(
 
 type Envelope<T> = { data: { data: T; meta?: ApiMeta } }
 
-const unwrap = <T>(res: Envelope<T>): T => res.data.data
+const unwrap = <T>(res: Envelope<T>): T => {
+  const d = res.data?.data as unknown
+  if (d && typeof d === 'object' && Array.isArray((d as Record<string, unknown>).data)) {
+    return (d as Record<string, unknown>).data as T
+  }
+  return (d !== undefined ? d : res.data) as T
+}
 
-const unwrapWithMeta = <T>(res: Envelope<T>): { data: T; meta?: ApiMeta } => ({
-  data: res.data.data,
-  meta: res.data.meta,
-})
+const unwrapWithMeta = <T>(res: Envelope<T>): { data: T; meta?: ApiMeta } => {
+  const envelopeData = res.data?.data as unknown
+  const isPaginator =
+    envelopeData !== null &&
+    typeof envelopeData === 'object' &&
+    Array.isArray((envelopeData as Record<string, unknown>).data)
+
+  const items = isPaginator
+    ? (envelopeData as Record<string, unknown>).data
+    : envelopeData
+
+  const rawMeta = res.data?.meta
+  const meta: ApiMeta | undefined =
+    rawMeta ??
+    (isPaginator
+      ? {
+          current_page: Number((envelopeData as Record<string, unknown>).current_page ?? 1),
+          last_page: Number((envelopeData as Record<string, unknown>).last_page ?? 1),
+          total: Number((envelopeData as Record<string, unknown>).total ?? 0),
+          per_page: Number((envelopeData as Record<string, unknown>).per_page ?? 10),
+        }
+      : undefined)
+
+  return {
+    data: (items ?? []) as T,
+    meta,
+  }
+}
 
 function isRawServerError(text?: string | null): boolean {
   if (!text || typeof text !== 'string') return false

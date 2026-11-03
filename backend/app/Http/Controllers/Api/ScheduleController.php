@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreScheduleRequest;
+use App\Http\Resources\ScheduleResource;
 use App\Models\Schedule;
 use App\Services\AuditLogService;
 use Illuminate\Http\Request;
@@ -34,7 +35,16 @@ class ScheduleController extends Controller
         $perPage = min((int) $request->query('per_page', 10), 100);
         $data = $q->paginate($perPage);
 
-        return response()->json(['success' => true, 'data' => $data, 'meta' => ['current_page' => $data->currentPage(), 'last_page' => $data->lastPage(), 'total' => $data->total(), 'per_page' => $data->perPage()]]);
+        return response()->json([
+            'success' => true,
+            'data' => ScheduleResource::collection($data),
+            'meta' => [
+                'current_page' => $data->currentPage(),
+                'last_page' => $data->lastPage(),
+                'total' => $data->total(),
+                'per_page' => $data->perPage(),
+            ],
+        ]);
     }
 
     public function store(StoreScheduleRequest $request)
@@ -45,7 +55,7 @@ class ScheduleController extends Controller
         $s = Schedule::create($request->validated());
         AuditLogService::log('CREATE', 'schedules', $s->id, null, $s->toArray());
 
-        return response()->json(['success' => true, 'message' => 'Jadwal berhasil dibuat', 'data' => $s->load('posyandu')], 201);
+        return response()->json(['success' => true, 'message' => 'Jadwal berhasil dibuat', 'data' => new ScheduleResource($s->load('posyandu'))], 201);
     }
 
     public function show(Schedule $schedule)
@@ -55,7 +65,7 @@ class ScheduleController extends Controller
         }
         $schedule->load('posyandu');
 
-        return response()->json(['success' => true, 'data' => $schedule]);
+        return response()->json(['success' => true, 'data' => new ScheduleResource($schedule)]);
     }
 
     public function update(Request $request, Schedule $schedule)
@@ -77,7 +87,7 @@ class ScheduleController extends Controller
         $schedule->update($data);
         AuditLogService::log('UPDATE', 'schedules', $schedule->id, $old, $schedule->toArray());
 
-        return response()->json(['success' => true, 'message' => 'Jadwal diperbarui', 'data' => $schedule]);
+        return response()->json(['success' => true, 'message' => 'Jadwal diperbarui', 'data' => new ScheduleResource($schedule->load('posyandu'))]);
     }
 
     public function destroy(Request $request, Schedule $schedule)

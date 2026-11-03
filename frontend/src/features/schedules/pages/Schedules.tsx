@@ -43,9 +43,9 @@ function toForm(s: Jadwal): FormState {
   return {
     posyandu_id: String(s.posyandu_id ?? ''),
     title: s.title ?? '',
-    date: s.date ?? '',
-    start_time: s.start_time ?? '',
-    end_time: s.end_time ?? '',
+    date: s.date ? s.date.slice(0, 10) : '',
+    start_time: s.start_time ? s.start_time.slice(0, 5) : '',
+    end_time: s.end_time ? s.end_time.slice(0, 5) : '',
     location: s.location ?? '',
     description: s.description ?? '',
     status: s.status,
@@ -86,7 +86,7 @@ export default function SchedulesPage() {
         per_page: 50,
       })
 
-      setRows(data)
+      setRows(Array.isArray(data) ? data : [])
     } catch (err) {
       setError(apiErrorMessage(err, 'Jadwal tidak dapat dimuat.'))
     } finally {
@@ -102,7 +102,7 @@ export default function SchedulesPage() {
     void (async () => {
       try {
         const { data } = await apiPosyandu.list({ per_page: 100 })
-        setPosyandus(data)
+        setPosyandus(Array.isArray(data) ? data : [])
       } catch {
         // Filter posyandu tidak wajib.
       }
@@ -241,7 +241,7 @@ export default function SchedulesPage() {
             <Spinner />
           ) : error ? (
             <ErrorState message={error} onRetry={load} />
-          ) : rows.length === 0 ? (
+          ) : !Array.isArray(rows) || rows.length === 0 ? (
             <EmptyState title="Belum ada jadwal" description="Tambahkan jadwal kegiatan posyandu berikutnya." />
           ) : (
             <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
