@@ -57,17 +57,17 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->role === Role::ADMIN->value;
+        return $this->role === Role::ADMIN->value || $this->role === Role::ADMIN;
     }
 
     public function isKader(): bool
     {
-        return $this->role === Role::KADER->value;
+        return $this->role === Role::KADER->value || $this->role === Role::KADER;
     }
 
     public function isOrangTua(): bool
     {
-        return $this->role === Role::ORANG_TUA->value;
+        return $this->role === Role::ORANG_TUA->value || $this->role === Role::ORANG_TUA;
     }
 
     /**

@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\PemeriksaanBumilController;
 use App\Http\Controllers\Api\PosyanduController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ScheduleController;
+use App\Http\Controllers\Api\SpecialCareController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -88,6 +89,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/ibu-hamil/{ibuHamil}/pemeriksaan', [IbuHamilController::class, 'pemeriksaan']);
     Route::apiResource('ibu-hamil', IbuHamilController::class);
     Route::apiResource('pemeriksaan-bumil', PemeriksaanBumilController::class);
+
+    // Penanganan Khusus (Special Care / PMT Pemulihan)
+    Route::get('/special-care/candidates', [SpecialCareController::class, 'candidates']);
+    Route::get('/special-care/active', [SpecialCareController::class, 'active']);
+    Route::get('/special-care/exit-proposals', [SpecialCareController::class, 'exitProposals']);
+    Route::get('/special-care/children/{child}/history', [SpecialCareController::class, 'childHistory']);
+    Route::get('/special-care/{enrollment}', [SpecialCareController::class, 'show']);
+    Route::get('/special-care/{enrollment}/audit-logs', [SpecialCareController::class, 'auditLogs']);
+    Route::post('/special-care/{enrollment}/confirm', [SpecialCareController::class, 'confirm']);
+    Route::post('/special-care/{enrollment}/reject', [SpecialCareController::class, 'reject']);
+    Route::post('/special-care/{enrollment}/exit', [SpecialCareController::class, 'exit']);
 
     // Schedules
     Route::apiResource('schedules', ScheduleController::class);

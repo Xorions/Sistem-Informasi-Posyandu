@@ -31,6 +31,8 @@ export type Permission =
   | 'view-laporan'
   | 'manage-pengguna'
   | 'view-audit-log'
+  | 'view-penanganan-khusus'
+  | 'manage-penanganan-khusus'
 
 const ADMIN_PERMS: Permission[] = [
   'view-dashboard',
@@ -57,6 +59,8 @@ const ADMIN_PERMS: Permission[] = [
   'view-laporan',
   'manage-pengguna',
   'view-audit-log',
+  'view-penanganan-khusus',
+  'manage-penanganan-khusus',
 ]
 
 const KADER_PERMS: Permission[] = [
@@ -79,6 +83,8 @@ const KADER_PERMS: Permission[] = [
   'manage-jadwal',
   'view-edukasi',
   'view-laporan',
+  'view-penanganan-khusus',
+  'manage-penanganan-khusus',
 ]
 
 /** Orang tua hanya boleh membaca data anak dan jadwalnya sendiri. */
@@ -89,6 +95,7 @@ const ORANG_TUA_PERMS: Permission[] = [
   'view-imunisasi',
   'view-jadwal',
   'view-edukasi',
+  'view-penanganan-khusus',
 ]
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {

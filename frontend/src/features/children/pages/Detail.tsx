@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { api } from "@/shared/lib/api"
+import { api, apiSpecialCare } from "@/shared/lib/api"
 import { useAuth } from '@/features/auth/AuthContext'
 import { can } from '@/shared/lib/rbac'
 import { Card, CardContent, CardHeader } from "@/shared/components/ui/card"
@@ -8,6 +8,11 @@ import { Badge } from "@/shared/components/ui/badge"
 import { formatDate, ageFromDob } from "@/shared/lib/utils"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useToast } from "@/shared/components/ui/toast"
+import {
+  SPECIAL_CARE_TRACK_LABEL,
+  SPECIAL_CARE_STATUS_LABEL,
+  type SpecialCareEnrollment,
+} from "@/shared/types"
 
 export default function ChildDetail() {
   const { id } = useParams()
@@ -24,6 +29,7 @@ export default function ChildDetail() {
   const [immunizations, setImmunizations] = useState<any[]>([])
   const [followups, setFollowups] = useState<any[]>([])
   const [parents, setParents] = useState<any[]>([])
+  const [specialCareList, setSpecialCareList] = useState<SpecialCareEnrollment[]>([])
 
   const load = async () => {
     try {
@@ -36,6 +42,12 @@ export default function ChildDetail() {
     try { const r = await api.get(`/children/${id}/analysis`); setAnalysis(r.data.data || r.data) } catch{}
     try { const r = await api.get(`/children/${id}/immunizations`); setImmunizations(r.data.data?.data || r.data.data || []) } catch{}
     try { const r = await api.get('/follow-ups', { params: { child_id: id, per_page: 100 }}); setFollowups(r.data.data?.data || r.data.data || []) } catch{}
+    if (id) {
+      try {
+        const list = await apiSpecialCare.childHistory(Number(id))
+        setSpecialCareList(list || [])
+      } catch {}
+    }
   }
   useEffect(()=>{ load() },[id])
 
@@ -47,9 +59,14 @@ export default function ChildDetail() {
     { id:'pemeriksaan', label:'Pemeriksaan' },
     { id:'pertumbuhan', label:'Pertumbuhan' },
     { id:'analisis', label:'Analisis' },
+    { id:'pendampingan', label:'Pendampingan Gizi' },
     { id:'imunisasi', label:'Imunisasi' },
     { id:'tindak', label:'Tindak Lanjut' },
   ]
+
+  const activeEnrollment = specialCareList.find((e) => e.status === 'active' || e.status === 'candidate')
+  const historyEnrollments = specialCareList.filter((e) => e.status === 'graduated' || e.status === 'cancelled')
+  const hasGraduatedBefore = !activeEnrollment && historyEnrollments.some((h) => h.status === 'graduated')
 
   return (
     <div className="space-y-6">
@@ -59,9 +76,48 @@ export default function ChildDetail() {
         <CardContent className="flex flex-wrap gap-6 items-start">
           <div className="w-16 h-16 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-xl">{child.nama_lengkap.charAt(0)}</div>
           <div className="flex-1 min-w-[220px]">
-            <h1 className="text-xl font-bold text-slate-900">{child.nama_lengkap} <span className="text-sm font-normal text-slate-500">({child.nama_panggilan||'-'})</span></h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold text-slate-900">{child.nama_lengkap} <span className="text-sm font-normal text-slate-500">({child.nama_panggilan||'-'})</span></h1>
+              {activeEnrollment && (
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                    activeEnrollment.status === 'active'
+                      ? 'bg-teal-100 text-teal-800 border border-teal-200'
+                      : 'bg-amber-100 text-amber-800 border border-amber-200'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                  {role === 'ORANG_TUA' && activeEnrollment.status === 'candidate'
+                    ? 'Rencana Pendampingan'
+                    : SPECIAL_CARE_STATUS_LABEL[activeEnrollment.status]}
+                </span>
+              )}
+              {hasGraduatedBefore && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  ✓ Lulus Program (Optimal)
+                </span>
+              )}
+            </div>
+
             <p className="text-sm text-slate-600 mt-1">{child.tempat_lahir}, {formatDate(child.tanggal_lahir)} • {ageFromDob(child.tanggal_lahir)} • {child.jenis_kelamin==='L'?'Laki-laki':'Perempuan'}</p>
             <p className="text-sm text-slate-500">{child.posyandu?.nama_posyandu} • {child.alamat}</p>
+
+            {/* Penanda Rujukan Medis yang Jelas & Halus */}
+            {activeEnrollment?.perlu_rujukan && (
+              <div className="mt-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 flex items-start gap-3 text-xs sm:text-sm">
+                <span className="text-base leading-none mt-0.5">⚕️</span>
+                <div className="flex-1">
+                  <div className="font-semibold text-rose-800 flex items-center gap-2">
+                    <span>Disarankan Konsultasi Medis (Puskesmas)</span>
+                  </div>
+                  <p className="mt-0.5 text-rose-700 text-xs">
+                    {role === 'ORANG_TUA'
+                      ? 'Berdasarkan catatan pemantauan berkala posyandu, ananda disarankan berkonsultasi dengan dokter di Puskesmas untuk pemeriksaan kesehatan yang lebih mendalam.'
+                      : `Anak memenuhi kriteria rujukan medis: ${activeEnrollment.alasan_masuk || 'Memerlukan pemeriksaan oleh dokter Puskesmas.'}`}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
           {(canManageChild || canManageExam) && (
             <div className="flex gap-2">
@@ -188,6 +244,152 @@ export default function ChildDetail() {
             </div>
           )}
         </CardContent></Card>
+      )}
+
+      {tab==='pendampingan' && (
+        <div className="space-y-6">
+          {/* Empathetic Informational Card */}
+          <Card className="border-teal-100 bg-teal-50/40">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center text-teal-700 text-lg shrink-0">
+                  🥣
+                </div>
+                <div className="text-sm">
+                  <h3 className="font-semibold text-teal-950">
+                    {role === 'ORANG_TUA' ? 'Ruang Pendampingan Nutrisi & Tumbuh Kembang' : 'Program Pendampingan Gizi Khusus'}
+                  </h3>
+                  <p className="text-slate-600 mt-1 text-xs sm:text-sm leading-relaxed">
+                    {role === 'ORANG_TUA'
+                      ? 'Program ini dihadirkan bersama posyandu dan puskesmas untuk memastikan setiap anak mendapatkan pemantauan gizi dan stimulasi tumbuh kembang yang paling sesuai dengan kebutuhannya. Pendampingan berjalan penuh kehangatan demi masa depan ananda yang sehat dan ceria.'
+                      : 'Pemantauan intensif PMT Pemulihan dan stimulasi tumbuh kembang berbasis standar Permenkes & WHO. Seluruh data tercatat otomatis dan terdokumentasi.'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Status Pendampingan Saat Ini */}
+          {activeEnrollment ? (
+            <Card className="border-teal-200">
+              <CardHeader
+                title={activeEnrollment.status === 'active' ? 'Program Sedang Berjalan' : 'Rencana Pendampingan'}
+                subtitle={SPECIAL_CARE_TRACK_LABEL[activeEnrollment.track]}
+              />
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <p className="text-slate-500">Status</p>
+                    <p className="font-bold text-slate-800 text-sm mt-0.5">
+                      {role === 'ORANG_TUA' && activeEnrollment.status === 'candidate'
+                        ? 'Rencana Pendampingan'
+                        : SPECIAL_CARE_STATUS_LABEL[activeEnrollment.status]}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <p className="text-slate-500">Fokus Pendampingan</p>
+                    <p className="font-bold text-teal-700 text-sm mt-0.5">
+                      {SPECIAL_CARE_TRACK_LABEL[activeEnrollment.track]}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <p className="text-slate-500">
+                      {activeEnrollment.status === 'active' ? 'Tanggal Mulai' : 'Teridentifikasi'}
+                    </p>
+                    <p className="font-bold text-slate-800 text-sm mt-0.5">
+                      {formatDate(activeEnrollment.entry_date || activeEnrollment.created_at || '')}
+                    </p>
+                    {activeEnrollment.status === 'active' && (
+                      <p className="text-[11px] text-teal-600 mt-0.5 font-medium">
+                        Hari ke-{activeEnrollment.days_in_program}
+                      </p>
+                    )}
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <p className="text-slate-500">Rujukan Medis</p>
+                    <p className={`font-bold text-sm mt-0.5 ${activeEnrollment.perlu_rujukan ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      {activeEnrollment.perlu_rujukan ? 'Perlu Puskesmas' : 'Posyandu Terpadu'}
+                    </p>
+                  </div>
+                </div>
+
+                {activeEnrollment.perlu_rujukan && (
+                  <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                    <p className="font-bold">Anjuran Kunjungan Fasilitas Kesehatan:</p>
+                    <p className="mt-1">
+                      {role === 'ORANG_TUA'
+                        ? 'Disarankan berkonsultasi dengan dokter di Puskesmas untuk pemeriksaan kesehatan yang lebih mendalam dan pemastian kondisi fisik ananda. Kader posyandu siap mendampingi proses konsultasi ke Puskesmas.'
+                        : (activeEnrollment.alasan_masuk || 'Memerlukan pemeriksaan oleh dokter Puskesmas.')}
+                    </p>
+                  </div>
+                )}
+
+                {activeEnrollment.notes && (
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                    <p className="font-semibold text-slate-700">Catatan Pemantauan:</p>
+                    <p className="mt-1 text-slate-600 whitespace-pre-line">{activeEnrollment.notes}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center text-slate-500 text-sm">
+                <p className="font-medium text-slate-700">Tidak ada program pendampingan aktif saat ini.</p>
+                <p className="text-xs text-slate-400 mt-1">Pertumbuhan ananda terpantau rutin melalui jadwal pemeriksaan bulanan posyandu.</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Riwayat Program Sebelumnya */}
+          <Card>
+            <CardHeader
+              title="Riwayat Program Pendampingan"
+              subtitle="Catatan program pendampingan yang telah diselesaikan"
+            />
+            <CardContent>
+              {historyEnrollments.length === 0 ? (
+                <p className="text-sm text-slate-500 py-4 text-center">Belum ada riwayat pendampingan sebelumnya.</p>
+              ) : (
+                <div className="space-y-3">
+                  {historyEnrollments.map((h) => (
+                    <div key={h.id} className="p-4 rounded-xl border border-slate-200 bg-white">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <span className="font-bold text-slate-900 text-sm">
+                            {SPECIAL_CARE_TRACK_LABEL[h.track]}
+                          </span>
+                          <span className="text-xs text-slate-400 ml-2">
+                            {formatDate(h.entry_date || h.created_at || '')} — {h.exit_date ? formatDate(h.exit_date) : 'Selesai'}
+                          </span>
+                        </div>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          h.status === 'graduated'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {SPECIAL_CARE_STATUS_LABEL[h.status]}
+                        </span>
+                      </div>
+                      {h.alasan_keluar && (
+                        <p className="text-xs text-slate-600 mt-2">
+                          <span className="font-semibold text-slate-700">Keterangan Evaluasi: </span>
+                          {h.alasan_keluar}
+                        </p>
+                      )}
+                      {h.notes && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          <span className="font-medium">Catatan: </span>
+                          {h.notes}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {tab==='imunisasi' && (

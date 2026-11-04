@@ -16,6 +16,9 @@ import type {
   OrangTua,
   PemeriksaanBumil,
   Posyandu,
+  SpecialCareEnrollment,
+  SpecialCareExitEvaluation,
+  SpecialCareStatusHistoryItem,
   User,
 } from '../types'
 
@@ -444,4 +447,43 @@ export const apiReports = {
     api.get(`/reports/${type}`, { params }).then(unwrapWithMeta<unknown>),
   download: (type: string, params: Record<string, unknown>) =>
     api.get(`/reports/${type}`, { params, responseType: 'blob' }),
+}
+
+export const apiSpecialCare = {
+  candidates: (params?: { posyandu_id?: number | string }) =>
+    api.get('/special-care/candidates', { params }).then((res) => res.data.data as SpecialCareEnrollment[]),
+  active: (params?: { posyandu_id?: number | string }) =>
+    api.get('/special-care/active', { params }).then((res) => res.data.data as SpecialCareEnrollment[]),
+  exitProposals: (params?: { posyandu_id?: number | string }) =>
+    api
+      .get('/special-care/exit-proposals', { params })
+      .then((res) => res.data.data as Array<{ enrollment: SpecialCareEnrollment; evaluation: SpecialCareExitEvaluation }>),
+  get: (id: number | string) =>
+    api.get(`/special-care/${id}`).then(
+      (res) =>
+        res.data as {
+          success: boolean
+          data: SpecialCareEnrollment
+          exit_evaluation: SpecialCareExitEvaluation | null
+          status_history: SpecialCareStatusHistoryItem[]
+        }
+    ),
+  confirm: (id: number | string, body?: { entry_date?: string; alasan?: string; notes?: string }) =>
+    api.post(`/special-care/${id}/confirm`, body ?? {}).then((res) => res.data.data as SpecialCareEnrollment),
+  reject: (id: number | string, body: { alasan_keluar: string; notes?: string }) =>
+    api.post(`/special-care/${id}/reject`, body).then((res) => res.data.data as SpecialCareEnrollment),
+  exit: (
+    id: number | string,
+    body: {
+      status: 'graduated' | 'cancelled'
+      exit_date: string
+      alasan_keluar: string
+      exit_examination_id?: number | null
+      notes?: string
+    }
+  ) => api.post(`/special-care/${id}/exit`, body).then((res) => res.data.data as SpecialCareEnrollment),
+  childHistory: (childId: number | string) =>
+    api.get(`/special-care/children/${childId}/history`).then((res) => res.data.data as SpecialCareEnrollment[]),
+  auditLogs: (id: number | string) =>
+    api.get(`/special-care/${id}/audit-logs`).then((res) => res.data.data as SpecialCareStatusHistoryItem[]),
 }

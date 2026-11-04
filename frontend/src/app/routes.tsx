@@ -20,6 +20,7 @@ export const ROUTES = {
   examinations: '/examinations',
   pertumbuhan: '/pertumbuhan',
   analisis: '/analisis',
+  specialCare: '/special-care',
   immunizations: '/immunizations',
   followUps: '/follow-ups',
   schedules: '/schedules',

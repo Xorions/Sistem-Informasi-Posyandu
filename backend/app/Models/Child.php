@@ -47,6 +47,27 @@ class Child extends Model
         return $this->hasMany(FollowUp::class);
     }
 
+    public function enrollments()
+    {
+        return $this->hasMany(SpecialCareEnrollment::class);
+    }
+
+    public function specialCareEnrollments()
+    {
+        return $this->hasMany(SpecialCareEnrollment::class);
+    }
+
+    public function activeEnrollment()
+    {
+        return $this->hasOne(SpecialCareEnrollment::class)->where('status', 'active');
+    }
+
+    /** Filter anak yang memiliki enrollment penanganan khusus berstatus aktif. */
+    public function scopeWithActiveEnrollment($query)
+    {
+        return $query->whereHas('specialCareEnrollments', fn ($q) => $q->where('status', 'active'));
+    }
+
     /**
      * Batasi daftar anak sesuai cakupan pengguna.
      *

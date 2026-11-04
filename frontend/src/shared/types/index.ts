@@ -322,6 +322,94 @@ export type ApiMeta = {
   to?: number
 }
 
+/** Tipe jalur pendampingan penanganan khusus. */
+export type SpecialCareTrack = 'wasting' | 'stunting' | 'both'
+
+export const SPECIAL_CARE_TRACK_LABEL: Record<SpecialCareTrack, string> = {
+  wasting: 'Pendampingan Nutrisi Intensif (PMT)',
+  stunting: 'Pendampingan Tumbuh Kembang',
+  both: 'Pendampingan Nutrisi & Tumbuh Kembang',
+}
+
+/** Status keikutsertaan program pendampingan. */
+export type SpecialCareStatus = 'candidate' | 'active' | 'graduated' | 'cancelled'
+
+export const SPECIAL_CARE_STATUS_LABEL: Record<SpecialCareStatus, string> = {
+  candidate: 'Menunggu Konfirmasi',
+  active: 'Sedang Didampingi',
+  graduated: 'Selesai Program (Optimal)',
+  cancelled: 'Dialihkan / Selesai',
+}
+
+export type SpecialCareExitEvaluation = {
+  eligible: boolean
+  reason: string
+  days_in_program: number
+  min_duration_days: number
+  consecutive_recovered_count: number
+  required_recovered_count: number
+  criteria: {
+    duration_met: boolean
+    recovery_criteria_met: boolean
+  }
+  details?: Array<{
+    examination_id: number
+    date: string
+    is_recovered: boolean
+    reasons: string[]
+  }>
+}
+
+export type SpecialCareEnrollment = {
+  id: number
+  child_id: number
+  posyandu_id: number
+  track: SpecialCareTrack
+  status: SpecialCareStatus
+  perlu_rujukan: boolean
+  alasan_masuk: string
+  entry_examination_id?: number | null
+  entry_date?: string | null
+  exit_date?: string | null
+  alasan_keluar?: string | null
+  exit_examination_id?: number | null
+  confirmed_by?: number | null
+  notes?: string | null
+  days_in_program: number
+  child?: Child
+  posyandu?: Pick<Posyandu, 'id' | 'nama_posyandu' | 'kode_posyandu'>
+  confirmed_by_user?: {
+    id: number
+    name: string
+    role: Role | string
+  } | null
+  entry_examination?: {
+    id: number
+    examination_date?: string | null
+    growth_record?: GrowthRecord | null
+  } | null
+  exit_examination?: {
+    id: number
+    examination_date?: string | null
+    growth_record?: GrowthRecord | null
+  } | null
+  created_at?: string
+}
+
+export type SpecialCareStatusHistoryItem = {
+  id: number
+  action: string
+  siapa: {
+    user_id?: number | null
+    nama: string
+    role?: string | null
+  }
+  kapan?: string | null
+  status_sebelumnya?: string | null
+  status_baru?: string | null
+  alasan?: string | null
+}
+
 /** Nilai meta saat endpoint belum pernah dipanggil. */
 export const EMPTY_PAGE_META: ApiMeta = {
   current_page: 1,

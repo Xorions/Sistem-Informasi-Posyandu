@@ -37,6 +37,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Pemeriksaan', to: ROUTES.examinations, icon: '📋', permission: 'view-pemeriksaan' },
       { label: 'Pertumbuhan', to: ROUTES.pertumbuhan, icon: '📈', permission: 'view-pemeriksaan' },
       { label: 'Analisis', to: ROUTES.analisis, icon: '🔬', permission: 'view-pemeriksaan' },
+      { label: 'Pendampingan Gizi', to: ROUTES.specialCare, icon: '🥣', permission: 'manage-penanganan-khusus' },
       { label: 'Imunisasi & Vitamin', to: ROUTES.immunizations, icon: '💉', permission: 'view-imunisasi' },
       { label: 'Pemeriksaan Bumil', to: ROUTES.pemeriksaanBumil, icon: '🩺', permission: 'view-ibu-hamil' },
       { label: 'Tindak Lanjut', to: ROUTES.followUps, icon: '🔔', permission: 'view-followup' },

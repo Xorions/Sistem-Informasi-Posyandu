@@ -9,9 +9,11 @@ use App\Http\Resources\ExaminationResource;
 use App\Models\Child;
 use App\Models\Examination;
 use App\Services\AuditLogService;
+use App\Services\SpecialCareCandidateService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 
 class ExaminationController extends Controller
 {
@@ -73,6 +75,15 @@ class ExaminationController extends Controller
             AuditLogService::log('CREATE', 'examinations', $exam->id, null, $exam->load('growthRecord')->toArray());
             $exam->load(['child', 'posyandu', 'examiner', 'growthRecord']);
 
+            try {
+                app(SpecialCareCandidateService::class)->evaluate($exam);
+            } catch (\Throwable $e) {
+                Log::error('Gagal mengevaluasi kandidat penanganan khusus saat simpan pemeriksaan: ' . $e->getMessage(), [
+                    'examination_id' => $exam->id,
+                    'exception' => $e,
+                ]);
+            }
+
             return response()->json(['success' => true, 'message' => 'Pemeriksaan berhasil disimpan', 'data' => new ExaminationResource($exam)], 201);
         });
     }
@@ -102,6 +113,15 @@ class ExaminationController extends Controller
             AuditLogService::log('UPDATE', 'examinations', $examination->id, $old, $examination->load('growthRecord')->toArray());
             $examination->load(['child', 'posyandu', 'examiner', 'growthRecord']);
 
+            try {
+                app(SpecialCareCandidateService::class)->handleExaminationUpdated($examination);
+            } catch (\Throwable $e) {
+                Log::error('Gagal mengevaluasi kandidat penanganan khusus saat update pemeriksaan: ' . $e->getMessage(), [
+                    'examination_id' => $examination->id,
+                    'exception' => $e,
+                ]);
+            }
+
             return response()->json(['success' => true, 'message' => 'Pemeriksaan berhasil diperbarui', 'data' => new ExaminationResource($examination)]);
         });
     }
@@ -114,6 +134,15 @@ class ExaminationController extends Controller
         // soft void, not delete per spec
         $examination->update(['status' => 'voided', 'void_reason' => $request->void_reason ?? 'Dibatalkan']);
         AuditLogService::log('DELETE', 'examinations', $examination->id, $old, $examination->toArray());
+
+        try {
+            app(SpecialCareCandidateService::class)->handleExaminationVoided($examination, $request->void_reason);
+        } catch (\Throwable $e) {
+            Log::error('Gagal menangani pembatalan pemeriksaan pada penanganan khusus: ' . $e->getMessage(), [
+                'examination_id' => $examination->id,
+                'exception' => $e,
+            ]);
+        }
 
         return response()->json(['success' => true, 'message' => 'Pemeriksaan berhasil dibatalkan']);
     }

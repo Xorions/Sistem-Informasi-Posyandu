@@ -26,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(ParentModel::class, ParentPolicy::class);
+        Gate::policy(\App\Models\SpecialCareEnrollment::class, \App\Policies\SpecialCareEnrollmentPolicy::class);
 
         // Rate limiter kombinasi email + IP untuk proteksi brute force
         RateLimiter::for('login', function (Request $request) {

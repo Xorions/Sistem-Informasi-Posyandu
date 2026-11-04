@@ -14,6 +14,7 @@ import KaderPage from '@/features/kader/pages/Kader'
 import Examinations from '@/features/examinations/pages/Examinations'
 import Pertumbuhan from '@/features/pertumbuhan/pages/Pertumbuhan'
 import Analisis from '@/features/analisis/pages/Analisis'
+import SpecialCarePage from '@/features/special-care/pages/SpecialCare'
 import Edukasi from '@/features/edukasi/pages/Edukasi'
 import EdukasiPublic, { EdukasiPublicDetail } from '@/features/edukasi/pages/EdukasiPublic'
 import Immunizations from '@/features/immunizations/pages/Immunizations'
@@ -128,6 +129,7 @@ function AppRoutes() {
         <Route path="examinations" element={guard('view-pemeriksaan', <Examinations />)} />
         <Route path="pertumbuhan" element={guard('view-pemeriksaan', <Pertumbuhan />)} />
         <Route path="analisis" element={guard('view-pemeriksaan', <Analisis />)} />
+        <Route path="special-care" element={guard('manage-penanganan-khusus', <SpecialCarePage />)} />
         <Route path="immunizations" element={guard('view-imunisasi', <Immunizations />)} />
         <Route path="follow-ups" element={guard('view-followup', <FollowUps />)} />
         <Route path="schedules" element={guard('view-jadwal', <Schedules />)} />
