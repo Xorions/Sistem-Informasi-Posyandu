@@ -20,6 +20,24 @@ use App\Http\Controllers\Api\SpecialCareController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
+// TEMPORARY: Preview inspection route - active ONLY when APP_ENV=preview
+// WAJIB DIHAPUS SEBELUM MERGE KE MAIN/PRODUCTION
+if (config('app.env') === 'preview') {
+    Route::get('/preview/ip-debug', function (\Illuminate\Http\Request $request) {
+        return response()->json([
+            'environment' => config('app.env'),
+            'resolved_client_ip' => $request->ip(),
+            'ips' => $request->ips(),
+            'x_forwarded_for' => $request->header('x-forwarded-for'),
+            'x_real_ip' => $request->header('x-real-ip'),
+            'x_vercel_forwarded_for' => $request->header('x-vercel-forwarded-for'),
+            'rate_limit_key' => \Illuminate\Support\Str::transliterate(
+                \Illuminate\Support\Str::lower('test@example.com').'|'.$request->ip()
+            ),
+        ]);
+    });
+}
+
 // Public edukasi
 Route::get('/edukasi', [EducationController::class, 'publicIndex']);
 Route::get('/edukasi/categories', [EducationController::class, 'categories']);

@@ -4,6 +4,7 @@
 .env.backup
 .env.production
 !.env.example
+!.env.vercel.example
 
 # Dependencies
 **/node_modules/
