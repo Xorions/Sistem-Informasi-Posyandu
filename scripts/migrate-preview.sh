@@ -35,14 +35,18 @@ if [ -z "$NEON_CONN" ]; then
     echo "Script ini wajib mengarah ke database dummy Neon, bukan database lokal." >&2
     echo "" >&2
     echo "Cara menjalankan:" >&2
-    echo "  bash scripts/migrate-preview.sh \"<pooled-connection-string-neon>\"" >&2
+    echo "  bash scripts/migrate-preview.sh \"<connection-string-neon>\"" >&2
     echo "atau:" >&2
-    echo "  DB_URL=\"<pooled-connection-string-neon>\" bash scripts/migrate-preview.sh" >&2
+    echo "  DB_URL=\"<connection-string-neon>\" bash scripts/migrate-preview.sh" >&2
     echo "atau simpan ke file .env.preview:" >&2
-    echo "  DB_URL=\"<pooled-connection-string-neon>\"" >&2
+    echo "  DB_URL=\"<connection-string-neon>\"" >&2
     echo "=================================================================" >&2
     exit 1
 fi
+
+# Neon PgBouncer transaction pooler membatalkan transaksi DDL/migrasi.
+# Gunakan direct connection (hapus suffix -pooler) untuk migrasi DDL.
+NEON_CONN=$(echo "$NEON_CONN" | sed -E 's/(-pooler)(\.[^/?]+)/\2/')
 
 export DB_URL="$NEON_CONN"
 export DATABASE_URL="$NEON_CONN"
