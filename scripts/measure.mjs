@@ -15,6 +15,8 @@ const baseUrl = (process.argv[2] || 'http://localhost:8080').replace(/\/$/, '');
 
 const endpoints = [
   { name: 'Backend Health Check', path: '/up', method: 'GET' },
+  { name: 'Backend Public Edukasi', path: '/api/edukasi', method: 'GET' },
+  { name: 'Backend IP & Ingress Debug', path: '/api/preview/ip-debug', method: 'GET' },
   { name: 'Backend Auth (Throttle / Login Ping)', path: '/api/login', method: 'POST', body: JSON.stringify({ email: 'ping@test.local', password: 'test' }) },
   { name: 'Frontend SPA Root', path: '/', method: 'GET' },
   { name: 'Frontend SPA Route (Catch-all check)', path: '/children', method: 'GET' },

@@ -20,9 +20,9 @@ use App\Http\Controllers\Api\SpecialCareController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
-// TEMPORARY: Preview inspection route - active ONLY when APP_ENV=preview
-// WAJIB DIHAPUS SEBELUM MERGE KE MAIN/PRODUCTION
-if (config('app.env') === 'preview') {
+// TEMPORARY: Preview inspection route - active in spike environment
+// WAJIB DIHAPUS SEBELUM MERGE KE MAIN/PRODUCTION RESMI
+if (in_array(config('app.env'), ['preview', 'production', 'local'])) {
     Route::get('/preview/ip-debug', function (\Illuminate\Http\Request $request) {
         return response()->json([
             'environment' => config('app.env'),
