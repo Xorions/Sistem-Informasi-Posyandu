@@ -6,44 +6,85 @@ set -euo pipefail
 # DILARANG MENGGUNAKAN migrate:fresh ATAU migrate:reset
 # ==============================================================================
 
-echo "==> [PREVIEW MIGRATE] Memulai validasi target database..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+BACKEND_DIR="${ROOT_DIR}/backend"
 
-# Resolve database name from DB_DATABASE or DB_URL / DATABASE_URL
-TARGET_DB="${DB_DATABASE:-}"
-if [ -z "$TARGET_DB" ]; then
-    DB_CONN_URL="${DATABASE_URL:-${DB_URL:-}}"
-    if [ -n "$DB_CONN_URL" ]; then
-        # Parse db name from postgres url: postgres://user:pass@host:port/dbname?sslmode=...
-        TARGET_DB=$(echo "$DB_CONN_URL" | sed -E 's/.*\/\/([^:]+:[^@]+@)?[^\/]+\/([^?]+).*/\2/')
+echo "==> [PREVIEW MIGRATE] Memulai inisialisasi koneksi database preview..."
+
+# 1. Prioritas sumber koneksi Neon:
+#    a. Argumen CLI ke-1 ($1)
+#    b. Environment variable DB_URL / DATABASE_URL
+#    c. File .env.preview (root atau backend)
+NEON_CONN="${1:-${DB_URL:-${DATABASE_URL:-}}}"
+
+if [ -z "$NEON_CONN" ]; then
+    if [ -f "${ROOT_DIR}/.env.preview" ]; then
+        echo "==> Membaca konfigurasi dari ${ROOT_DIR}/.env.preview..."
+        NEON_CONN=$(grep -E '^(DB_URL|DATABASE_URL)=' "${ROOT_DIR}/.env.preview" | head -n 1 | cut -d '=' -f2- | tr -d '"'"'" || echo "")
+    elif [ -f "${BACKEND_DIR}/.env.preview" ]; then
+        echo "==> Membaca konfigurasi dari ${BACKEND_DIR}/.env.preview..."
+        NEON_CONN=$(grep -E '^(DB_URL|DATABASE_URL)=' "${BACKEND_DIR}/.env.preview" | head -n 1 | cut -d '=' -f2- | tr -d '"'"'" || echo "")
     fi
 fi
 
-# Fallback check via php artisan if still empty
-if [ -z "$TARGET_DB" ]; then
-    TARGET_DB=$(php -r "require __DIR__ . '/../backend/vendor/autoload.php'; \$app = require_once __DIR__ . '/../backend/bootstrap/app.php'; \$kernel = \$app->make(Illuminate\Contracts\Console\Kernel::class); \$kernel->bootstrap(); echo config('database.connections.pgsql.database');" 2>/dev/null || echo "")
-fi
-
-echo "==> Target database: '${TARGET_DB}'"
-
-# Safety check: Reject any database containing 'prod' or 'production'
-LOWER_DB=$(echo "$TARGET_DB" | tr '[:upper:]' '[:lower:]')
-if [[ "$LOWER_DB" =~ (prod|production) ]]; then
+# 2. Jika koneksi Neon belum diberikan, tolak agar tidak keliru memigrasi database lokal
+if [ -z "$NEON_CONN" ]; then
     echo "=================================================================" >&2
-    echo "FATAL ERROR: Target database '${TARGET_DB}' terdeteksi sebagai PRODUCTION!" >&2
-    echo "Operasi migrasi preview DIBATALKAN untuk mencegah kerusakan data." >&2
+    echo "FATAL ERROR: Connection string Neon PostgreSQL belum disediakan!" >&2
+    echo "Script ini wajib mengarah ke database dummy Neon, bukan database lokal." >&2
+    echo "" >&2
+    echo "Cara menjalankan:" >&2
+    echo "  bash scripts/migrate-preview.sh \"<pooled-connection-string-neon>\"" >&2
+    echo "atau:" >&2
+    echo "  DB_URL=\"<pooled-connection-string-neon>\" bash scripts/migrate-preview.sh" >&2
+    echo "atau simpan ke file .env.preview:" >&2
+    echo "  DB_URL=\"<pooled-connection-string-neon>\"" >&2
     echo "=================================================================" >&2
     exit 1
 fi
 
-echo "==> Validasi keamanan database lolos. Database bukan production."
+export DB_URL="$NEON_CONN"
+export DATABASE_URL="$NEON_CONN"
+export DB_CONNECTION="pgsql"
+export DB_SSLMODE="require"
 
-# Change directory to backend
-cd "$(dirname "$0")/../backend"
+# 3. Ekstrak nama database untuk validasi keamanan
+TARGET_DB=$(echo "$NEON_CONN" | sed -E 's/.*\/\/([^:]+:[^@]+@)?[^\/]+\/([^?]+).*/\2/')
+TARGET_HOST=$(echo "$NEON_CONN" | sed -E 's/.*@([^:\/?]+).*/\1/')
 
-echo "==> Menjalankan migrasi database aman (php artisan migrate --force)..."
+echo "==> Target host: '${TARGET_HOST}'"
+echo "==> Target database: '${TARGET_DB}'"
+
+# 4. Validasi anti-production
+LOWER_DB=$(echo "$TARGET_DB" | tr '[:upper:]' '[:lower:]')
+LOWER_HOST=$(echo "$TARGET_HOST" | tr '[:upper:]' '[:lower:]')
+if [[ "$LOWER_DB" =~ (prod|production) ]] || [[ "$LOWER_HOST" =~ (prod|production) ]]; then
+    echo "=================================================================" >&2
+    echo "FATAL ERROR: Target database '${TARGET_DB}' pada '${TARGET_HOST}'" >&2
+    echo "terdeteksi sebagai PRODUCTION! Operasi DIBATALKAN demi keamanan data." >&2
+    echo "=================================================================" >&2
+    exit 1
+fi
+
+# 5. Cegah eksekusi ke localhost/127.0.0.1
+if [[ "$TARGET_HOST" =~ (127\.0\.0\.1|localhost) ]]; then
+    echo "=================================================================" >&2
+    echo "FATAL ERROR: Target host terdeteksi sebagai database lokal (${TARGET_HOST})!" >&2
+    echo "Script migrate-preview wajib diarahkan ke remote Neon preview database." >&2
+    echo "=================================================================" >&2
+    exit 1
+fi
+
+echo "==> Validasi keamanan database lolos. Database remote bukan production."
+
+# 6. Eksekusi migrasi dan seeding di direktori backend
+cd "${BACKEND_DIR}"
+
+echo "==> Menjalankan migrasi database (php artisan migrate --force)..."
 php artisan migrate --force
 
-echo "==> Menjalankan seeding akun preview (hanya jika data admin belum ada)..."
+echo "==> Menjalankan seeding akun preview (PreviewDatabaseSeeder)..."
 php artisan db:seed --class="Database\\Seeders\\PreviewDatabaseSeeder" --force
 
-echo "==> [PREVIEW MIGRATE] Migrasi dan inisialisasi preview selesai dengan aman."
+echo "==> [PREVIEW MIGRATE] Selesai. Database Neon preview siap digunakan."
