@@ -79,18 +79,19 @@ Berdasarkan dokumentasi resmi Vercel (`/docs/services`, `/docs/services/routing`
 ## 3. Hasil Pengukuran & Benchmark Live (Empirical Data)
 
 Pengukuran dilakukan menggunakan `scripts/measure.mjs` terhadap instance live:
+
 - **Target URL:** `https://posyandu-sabah-balau.vercel.app`
 - **Waktu Eksekusi:** 9 November 2026
 - **Database:** Neon PostgreSQL Serverless (`ap-southeast-1.aws.neon.tech`)
 
-| Endpoint | Tipe | Cold Start (Run 1) | Warm Latency (Run 2) | Status HTTP | Catatan |
-|---|---|---|---|---|---|
-| `/` | Frontend Root SPA | ~532 ms | **38 - 46 ms** | 200 OK | Dilayani Vercel Edge CDN |
-| `/children` | Frontend SPA Route | ~531 ms | **47 - 52 ms** | 200 OK | SPA Catch-all rewrite berfungsi |
-| `/up` | Backend Health Check | 2,173 ms | **306 ms** | 200 OK | FrankenPHP worker in-memory |
-| `/api/preview/ip-debug` | Backend IP Ingress | 809 ms | **280 - 306 ms** | 200 OK | Tanpa query DB |
-| `/api/edukasi` | Backend Query DB | 3,517 ms | **2,940 - 3,069 ms** | 200 OK | Query publik PostgreSQL |
-| `/api/login` | Backend Auth (DB + Hash) | 3,307 ms | **2,943 - 3,229 ms** | 401 / 200 | Argon2id/Bcrypt + query user |
+| Endpoint                | Tipe                     | Cold Start (Run 1) | Warm Latency (Run 2) | Status HTTP | Catatan                         |
+| ----------------------- | ------------------------ | ------------------ | -------------------- | ----------- | ------------------------------- |
+| `/`                     | Frontend Root SPA        | ~532 ms            | **38 - 46 ms**       | 200 OK      | Dilayani Vercel Edge CDN        |
+| `/children`             | Frontend SPA Route       | ~531 ms            | **47 - 52 ms**       | 200 OK      | SPA Catch-all rewrite berfungsi |
+| `/up`                   | Backend Health Check     | 2,173 ms           | **306 ms**           | 200 OK      | FrankenPHP worker in-memory     |
+| `/api/preview/ip-debug` | Backend IP Ingress       | 809 ms             | **280 - 306 ms**     | 200 OK      | Tanpa query DB                  |
+| `/api/edukasi`          | Backend Query DB         | 3,517 ms           | **2,940 - 3,069 ms** | 200 OK      | Query publik PostgreSQL         |
+| `/api/login`            | Backend Auth (DB + Hash) | 3,307 ms           | **2,943 - 3,229 ms** | 401 / 200   | Argon2id/Bcrypt + query user    |
 
 ### Analisis Latensi & Cross-Region Bottleneck
 
@@ -208,15 +209,16 @@ Container FrankenPHP berjalan sebagai pengguna non-root `www-data`:
 
 ### Rekomendasi: **GO (LAYAK DIGUNAKAN)** dengan Catatan Optimasi Region
 
-| Kriteria Evaluasi | Status | Catatan Teknis |
-|---|---|---|
-| **Stabilitas Kontainer** | **Sangat Baik** | FrankenPHP berjalan lancar pada Vercel Buildah. Build cached hanya 46s. |
-| **Routing & Ingress** | **Sangat Baik** | Vercel Services merutekan `/api/*` dan catch-all SPA frontend tanpa konflik CORS. |
-| **Keamanan & Rate Limiting** | **Sangat Baik** | `trustProxies` membaca IP asli (`156.230.x.x`), anti-spoofing terverifikasi. |
-| **Database Integration** | **Berhasil** | Neon PostgreSQL terhubung via SSL require. DDL direct & runtime pooler terpisah. |
-| **Latensi Query DB** | **Perlu Penyesuaian Region** | Compute US East (`iad1`) ke Neon Singapura (`ap-southeast-1`) berjarak geografis jauh (~3s). |
+| Kriteria Evaluasi            | Status                       | Catatan Teknis                                                                               |
+| ---------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------- |
+| **Stabilitas Kontainer**     | **Sangat Baik**              | FrankenPHP berjalan lancar pada Vercel Buildah. Build cached hanya 46s.                      |
+| **Routing & Ingress**        | **Sangat Baik**              | Vercel Services merutekan `/api/*` dan catch-all SPA frontend tanpa konflik CORS.            |
+| **Keamanan & Rate Limiting** | **Sangat Baik**              | `trustProxies` membaca IP asli (`156.230.x.x`), anti-spoofing terverifikasi.                 |
+| **Database Integration**     | **Berhasil**                 | Neon PostgreSQL terhubung via SSL require. DDL direct & runtime pooler terpisah.             |
+| **Latensi Query DB**         | **Perlu Penyesuaian Region** | Compute US East (`iad1`) ke Neon Singapura (`ap-southeast-1`) berjarak geografis jauh (~3s). |
 
 ### Action Item untuk Menuju Produksi:
+
 1. **Region Alignment:** Ubah region compute Vercel ke `sin1` (Singapura) agar satu region dengan Neon AWS Singapore untuk memangkas latensi DB dari ~3s menjadi <150ms.
 2. **Pembersihan Rute Debug:** Hapus endpoint sementara `GET /api/preview/ip-debug` dari `backend/routes/api.php` setelah seluruh inspeksi selesai.
 

@@ -1,0 +1,16 @@
+.git
+.github
+**/.git
+node_modules
+**/node_modules
+backend/vendor
+**/vendor
+backend/storage/logs/*
+backend/storage/framework/cache/data/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/bootstrap/cache/*.php
+backend/tests
+.env*
+!.env.example
+!.env.vercel.example
