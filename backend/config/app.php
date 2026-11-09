@@ -52,7 +52,16 @@ return [
     |
     */
 
-    'url' => env('APP_URL', 'http://localhost'),
+    'url' => (function () {
+        $url = env('APP_URL');
+        if ($url && !str_contains($url, '${VERCEL_URL}')) {
+            return $url;
+        }
+        if ($vercelUrl = env('VERCEL_URL')) {
+            return 'https://'.$vercelUrl;
+        }
+        return 'http://localhost';
+    })(),
 
     /*
     |--------------------------------------------------------------------------
