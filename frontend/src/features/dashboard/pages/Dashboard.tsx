@@ -172,7 +172,7 @@ export default function Dashboard() {
         {
           label: 'Perlu Pemantauan',
           value: data.perlu_pemantauan,
-          sub: 'Follow-up pending',
+          sub: 'Menunggu tindak lanjut',
           tone: 'bg-amber-500',
         },
         {

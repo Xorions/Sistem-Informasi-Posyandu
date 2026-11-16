@@ -51,12 +51,48 @@ const STATUS_CLASS: Record<string, string> = {
   voided: 'bg-slate-100 text-slate-600 border-slate-200',
 }
 
+/**
+ * Pemetaan label status bahasa Indonesia baku untuk seluruh antarmuka.
+ */
+const STATUS_LABEL: Record<string, string> = {
+  // status umum
+  active: 'Aktif',
+  inactive: 'Tidak Aktif',
+
+  // tindak lanjut & jadwal
+  pending: 'Menunggu',
+  in_progress: 'Dalam Proses',
+  completed: 'Selesai',
+  cancelled: 'Dibatalkan',
+  scheduled: 'Terjadwal',
+  ongoing: 'Berlangsung',
+
+  // imunisasi
+  sudah: 'Sudah',
+  belum: 'Belum',
+  terjadwal: 'Terjadwal',
+
+  // edukasi
+  published: 'Diterbitkan',
+  draft: 'Draf',
+  archived: 'Diarsipkan',
+
+  // pemeriksaan ibu hamil
+  normal: 'Normal',
+  perlu_perhatian: 'Perlu Perhatian',
+  danger: 'Bahaya',
+
+  // pemeriksaan anak & umum
+  voided: 'Dibatalkan',
+}
+
 export function StatusBadge({ status }: { status: string }) {
   const cls = STATUS_CLASS[status] || 'bg-slate-100 text-slate-700 border-slate-200'
+  const label = STATUS_LABEL[status] || status
 
   return (
     <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium border ${cls}`}>
-      {status}
+      {label}
     </span>
   )
 }

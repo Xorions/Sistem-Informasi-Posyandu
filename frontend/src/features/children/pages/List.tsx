@@ -176,8 +176,8 @@ export default function ChildrenList() {
           <div className="flex flex-wrap justify-between items-center gap-3 px-6 py-4 border-t">
             <p className="text-xs text-slate-500">Total {meta.total} • Halaman {meta.current_page}/{meta.last_page}</p>
             <div className="flex gap-2">
-              <button disabled={page<=1} onClick={()=>setPage(p=>p-1)} className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm disabled:opacity-50">Prev</button>
-              <button disabled={page>=meta.last_page} onClick={()=>setPage(p=>p+1)} className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm disabled:opacity-50">Next</button>
+              <button disabled={page<=1} onClick={()=>setPage(p=>p-1)} className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm disabled:opacity-50">Sebelumnya</button>
+              <button disabled={page>=meta.last_page} onClick={()=>setPage(p=>p+1)} className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm disabled:opacity-50">Selanjutnya</button>
             </div>
           </div>
         )}
