@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="/assets/index-kYCxhT6E.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-Z1Tw-L7E.css">
+    <script type="module" crossorigin src="/assets/index-DN46w--U.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BVqsx7cJ.css">
   </head>
   <body class="bg-slate-50">
     <div id="root"></div>
