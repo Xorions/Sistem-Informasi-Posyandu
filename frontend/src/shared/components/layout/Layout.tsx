@@ -103,25 +103,26 @@ export default function Layout() {
   const posyanduNames = user?.posyandus?.map((p) => p.nama_posyandu).join(', ')
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="flex min-h-screen bg-slate-50">
       {mobileOpen && (
         <div className="fixed inset-0 bg-black/30 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
+      {/* 1. NAVBAR KIRI (Diam di tempat / Sticky Full-Height) */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-[280px] bg-white border-r border-slate-200 flex flex-col transition-transform lg:translate-x-0 ${
+        className={`fixed lg:sticky top-0 h-screen w-64 shrink-0 border-r border-slate-200 bg-white z-50 flex flex-col transition-transform duration-200 lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="px-6 py-6 border-b border-slate-100">
+        <div className="p-5 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center text-white font-bold text-sm">
+            <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
               P
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="font-bold text-slate-800 leading-none">Posyandu</p>
               <p className="font-bold text-teal-600 leading-none -mt-0.5">Terpadu</p>
-              <p className="text-[11px] text-slate-500 mt-1 tracking-wide">{CONFIG.APP_TAGLINE}</p>
+              <p className="text-[11px] text-slate-500 mt-1 tracking-wide truncate">{CONFIG.APP_TAGLINE}</p>
             </div>
           </div>
 
@@ -144,19 +145,20 @@ export default function Layout() {
         <div className="p-4 border-t border-slate-100">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-black"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-black transition"
           >
             ⎋ Logout
           </button>
-          <p className="text-[11px] text-center text-slate-400 mt-3">© 2026 {CONFIG.APP_NAME}</p>
+          <p className="text-[11px] text-center text-slate-400 mt-2">© 2026 {CONFIG.APP_NAME}</p>
         </div>
       </aside>
 
+      {/* 2. KONTEN UTAMA (Bebas digulir ke bawah panjangnya) */}
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => setMobileOpen(true)}
-            className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center"
+            className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-50"
           >
             ☰
           </button>
@@ -164,7 +166,7 @@ export default function Layout() {
           <div className="w-9" />
         </header>
 
-        <main className="flex-1 p-4 lg:p-8 max-w-[1600px] mx-auto w-full">
+        <main className="flex-1 p-6 md:p-8">
           <Outlet />
         </main>
       </div>
