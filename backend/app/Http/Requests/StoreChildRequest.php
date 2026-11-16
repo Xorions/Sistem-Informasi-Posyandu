@@ -12,12 +12,26 @@ class StoreChildRequest extends FormRequest
         return ! $this->user()?->isOrangTua();
     }
 
+    protected function prepareForValidation(): void
+    {
+        $merge = [];
+        if ($this->has('nama_lengkap')) {
+            $merge['nama_lengkap'] = strip_tags((string) $this->input('nama_lengkap'));
+        }
+        if ($this->has('nama_panggilan')) {
+            $merge['nama_panggilan'] = strip_tags((string) $this->input('nama_panggilan'));
+        }
+        if ($merge) {
+            $this->merge($merge);
+        }
+    }
+
     public function rules(): array
     {
         return [
             'posyandu_id' => 'required|exists:posyandu,id',
             'nik' => 'nullable|digits:16|unique:children,nik',
-            'nama_lengkap' => 'required|string|max:255',
+            'nama_lengkap' => ['required', 'string', 'max:255', "regex:/^[\pL\s\.\'\-]+$/u"],
             'nama_panggilan' => 'nullable|string|max:100',
             'tempat_lahir' => 'required|string|max:100',
             'tanggal_lahir' => 'required|date|before_or_equal:today',
@@ -45,10 +59,11 @@ class StoreChildRequest extends FormRequest
         return [
             'posyandu_id.required' => 'Posyandu wajib dipilih',
             'nama_lengkap.required' => 'Nama lengkap wajib diisi',
+            'nama_lengkap.regex' => 'Nama anak hanya boleh berisi huruf dan karakter umum nama.',
             'tanggal_lahir.required' => 'Tanggal lahir wajib diisi',
             'tanggal_lahir.before_or_equal' => 'Tanggal lahir tidak boleh di masa depan',
             'nik.digits' => 'NIK anak harus berjumlah 16 digit angka.',
-            'nik.unique' => 'NIK anak sudah terdaftar.',
+            'nik.unique' => 'NIK sudah digunakan.',
             'nomor_kk.digits' => 'Nomor KK harus berjumlah 16 digit angka.',
             'parents.*.nik.digits' => 'NIK orang tua harus berjumlah 16 digit angka.',
             'parents.*.nomor_telepon.regex' => 'Format nomor telepon orang tua tidak valid.',

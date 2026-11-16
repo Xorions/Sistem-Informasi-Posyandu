@@ -80,7 +80,7 @@ class Child extends Model
     {
         if ($user->isOrangTua()) {
             $query->whereHas('parents', fn ($q) => $q->where('parents.id', $user->parent_id));
-        } elseif (! $user->isAdmin()) {
+        } elseif (! $user->isSuperAdmin()) {
             $query->whereIn('posyandu_id', $user->posyanduIds());
         }
 

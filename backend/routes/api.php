@@ -134,6 +134,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Users
+    Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
     Route::apiResource('users', UserController::class);
 
     // Audit logs

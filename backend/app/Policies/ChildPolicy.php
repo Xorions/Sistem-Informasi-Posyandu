@@ -15,7 +15,7 @@ class ChildPolicy
 
     public function view(User $user, Child $child): bool
     {
-        if ($user->isAdmin()) {
+        if ($user->isSuperAdmin()) {
             return true;
         }
 

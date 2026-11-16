@@ -17,7 +17,13 @@ class StoreIbuHamilRequest extends FormRequest
             'parent_id' => 'required|exists:parents,id',
             'posyandu_id' => 'required|exists:posyandu,id',
             // Salah satu dari HPHT atau HPL wajib diisi agar usia kehamilan bisa dihitung.
-            'hpht' => 'nullable|date|before_or_equal:today|required_without:tanggal_perkiraan_lahir',
+            'hpht' => [
+                'nullable',
+                'date',
+                'before_or_equal:today',
+                'after_or_equal:' . now()->subWeeks(42)->format('Y-m-d'),
+                'required_without:tanggal_perkiraan_lahir',
+            ],
             'tanggal_perkiraan_lahir' => 'nullable|date|after:today|required_without:hpht',
             'jarak_kehamilan' => 'nullable|integer|min:0|max:60',
             'jumlah_anak_lahir' => 'nullable|integer|min:0|max:15',
@@ -34,6 +40,7 @@ class StoreIbuHamilRequest extends FormRequest
         return [
             'parent_id.required' => 'Data orang tua wajib dipilih.',
             'posyandu_id.required' => 'Posyandu wajib dipilih.',
+            'hpht.after_or_equal' => 'HPHT tidak valid (usia kehamilan tidak boleh melebihi 42 minggu).',
             'hpht.required_without' => 'Isi HPHT atau perkiraan lahir.',
             'tanggal_perkiraan_lahir.required_without' => 'Isi HPHT atau perkiraan lahir.',
             'tanggal_perkiraan_lahir.after' => 'Perkiraan lahir harus di masa depan.',

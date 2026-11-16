@@ -15,7 +15,12 @@ class UpdateIbuHamilRequest extends FormRequest
     {
         return [
             'posyandu_id' => 'sometimes|exists:posyandu,id',
-            'hpht' => 'nullable|date|before_or_equal:today',
+            'hpht' => [
+                'nullable',
+                'date',
+                'before_or_equal:today',
+                'after_or_equal:' . now()->subWeeks(42)->format('Y-m-d'),
+            ],
             'tanggal_perkiraan_lahir' => 'nullable|date',
             'jarak_kehamilan' => 'nullable|integer|min:0|max:60',
             'jumlah_anak_lahir' => 'nullable|integer|min:0|max:15',
@@ -24,6 +29,14 @@ class UpdateIbuHamilRequest extends FormRequest
             'golongan_darah' => 'nullable|string|in:A,B,AB,O',
             'riwayat_penyakit' => 'nullable|string',
             'status' => 'nullable|in:active,inactive',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'hpht.after_or_equal' => 'HPHT tidak valid (usia kehamilan tidak boleh melebihi 42 minggu).',
+            'hpht.before_or_equal' => 'HPHT tidak boleh di masa depan.',
         ];
     }
 }

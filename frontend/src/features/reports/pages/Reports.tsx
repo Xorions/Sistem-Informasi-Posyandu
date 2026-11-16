@@ -14,6 +14,7 @@ import { StatusBadge } from '@/shared/components/ui/badge'
 import { useAuth } from '@/features/auth/AuthContext'
 import { can } from '@/shared/lib/rbac'
 import { useToast } from '@/shared/components/ui/toast'
+import { formatDate } from '@/shared/lib/utils'
 import {
   apiReports,
   apiPosyandu,
@@ -613,7 +614,7 @@ export default function Reports() {
                               {row.jenis_kelamin === 'L' ? 'Laki-laki' : row.jenis_kelamin === 'P' ? 'Perempuan' : row.jenis_kelamin}
                             </td>
                             <td className="px-4 py-3 text-slate-600 text-xs">
-                              {row.tempat_lahir ? `${row.tempat_lahir}, ${row.tanggal_lahir || ''}` : row.tanggal_lahir || '-'}
+                              {row.tempat_lahir ? `${row.tempat_lahir}, ${formatDate(row.tanggal_lahir)}` : formatDate(row.tanggal_lahir)}
                             </td>
                             <td className="px-4 py-3 text-slate-700">{row.posyandu?.nama_posyandu || '-'}</td>
                             <td className="px-4 py-3">
@@ -626,7 +627,7 @@ export default function Reports() {
                         const rec = row.growth_record || row.growthRecord
                         return (
                           <tr key={key} className="hover:bg-slate-50/50">
-                            <td className="px-4 py-3 text-slate-600 text-xs">{row.examination_date || '-'}</td>
+                            <td className="px-4 py-3 text-slate-600 text-xs">{formatDate(row.examination_date)}</td>
                             <td className="px-4 py-3 font-medium text-slate-900">{row.child?.nama_lengkap || '-'}</td>
                             <td className="px-4 py-3 text-slate-700">{row.posyandu?.nama_posyandu || '-'}</td>
                             <td className="px-4 py-3 text-right text-slate-700 font-medium">
@@ -647,7 +648,7 @@ export default function Reports() {
                       if (active === 'imunisasi') {
                         return (
                           <tr key={key} className="hover:bg-slate-50/50">
-                            <td className="px-4 py-3 text-slate-600 text-xs">{row.vaccination_date || '-'}</td>
+                            <td className="px-4 py-3 text-slate-600 text-xs">{formatDate(row.vaccination_date)}</td>
                             <td className="px-4 py-3 font-medium text-slate-900">{row.child?.nama_lengkap || '-'}</td>
                             <td className="px-4 py-3 text-slate-700">
                               <span
@@ -670,7 +671,7 @@ export default function Reports() {
                       if (active === 'follow-up') {
                         return (
                           <tr key={key} className="hover:bg-slate-50/50">
-                            <td className="px-4 py-3 text-slate-600 text-xs">{row.follow_up_date || '-'}</td>
+                            <td className="px-4 py-3 text-slate-600 text-xs">{formatDate(row.follow_up_date)}</td>
                             <td className="px-4 py-3 font-medium text-slate-900">{row.child?.nama_lengkap || '-'}</td>
                             <td className="px-4 py-3 text-slate-700">{row.posyandu?.nama_posyandu || '-'}</td>
                             <td className="px-4 py-3 text-slate-700 font-medium">{row.type || '-'}</td>
@@ -689,7 +690,7 @@ export default function Reports() {
                             <td className="px-4 py-3 text-slate-700">{row.posyandu?.nama_posyandu || '-'}</td>
                             <td className="px-4 py-3 text-slate-700">{row.usia_kehamilan ? `${row.usia_kehamilan} minggu` : '-'}</td>
                             <td className="px-4 py-3 text-slate-700">{row.trimester ? `Trimester ${row.trimester}` : '-'}</td>
-                            <td className="px-4 py-3 text-slate-600 text-xs">{row.tanggal_perkiraan_lahir || '-'}</td>
+                            <td className="px-4 py-3 text-slate-600 text-xs">{formatDate(row.tanggal_perkiraan_lahir)}</td>
                             <td className="px-4 py-3 text-slate-700 font-medium">{exam?.tekanan_darah || '-'}</td>
                             <td className="px-4 py-3 text-slate-700 font-medium">{exam?.berat_badan ? `${exam.berat_badan} kg` : '-'}</td>
                             <td className="px-4 py-3">

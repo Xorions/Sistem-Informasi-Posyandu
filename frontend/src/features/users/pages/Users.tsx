@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
-import { apiErrorMessage, apiParents, apiPosyandu, apiUsers, apiValidationErrors } from '@/shared/lib/api'
+import { api, apiErrorMessage, apiParents, apiPosyandu, apiUsers, apiValidationErrors } from '@/shared/lib/api'
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/card'
 import { Button, EmptyState, ErrorState, Field, Input, Select, Spinner } from '@/shared/components/ui/field'
 import { ConfirmDeleteModal } from '@/shared/components/ui/modal'
@@ -50,6 +50,12 @@ export default function UsersPage() {
 
   const [deleting, setDeleting] = useState<User | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+
+  const [resetTarget, setResetTarget] = useState<User | null>(null)
+  const [resetPassword, setResetPassword] = useState('')
+  const [resetPasswordConfirmation, setResetPasswordConfirmation] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
 
   const debouncedSearch = useDebounce(search, 400)
 
@@ -172,6 +178,39 @@ export default function UsersPage() {
     }
   }
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resetTarget) return
+
+    if (resetPassword.length < 8) {
+      setResetError('Password minimal 8 karakter.')
+      return
+    }
+
+    if (resetPassword !== resetPasswordConfirmation) {
+      setResetError('Konfirmasi password tidak cocok.')
+      return
+    }
+
+    setResetLoading(true)
+    setResetError(null)
+
+    try {
+      await api.post(`/users/${resetTarget.id}/reset-password`, {
+        password: resetPassword,
+        password_confirmation: resetPasswordConfirmation,
+      })
+      toast.show(`Password untuk ${resetTarget.name} berhasil diubah.`, 'success')
+      setResetTarget(null)
+      setResetPassword('')
+      setResetPasswordConfirmation('')
+    } catch (err) {
+      setResetError(apiErrorMessage(err, 'Gagal mereset password.'))
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
   const togglePosyandu = (id: number, checked: boolean) =>
     setForm((f) => ({
       ...f,
@@ -242,7 +281,18 @@ export default function UsersPage() {
                       <td className="py-3 pr-3 text-slate-600">
                         {u.posyandus?.map((p) => p.nama_posyandu).join(', ') || '-'}
                       </td>
-                      <td className="py-3 text-right">
+                      <td className="py-3 text-right space-x-3">
+                        <button
+                          onClick={() => {
+                            setResetTarget(u)
+                            setResetPassword('')
+                            setResetPasswordConfirmation('')
+                            setResetError(null)
+                          }}
+                          className="text-teal-600 hover:text-teal-800 text-xs font-medium"
+                        >
+                          Reset Password
+                        </button>
                         <button
                           onClick={() => setDeleting(u)}
                           className="text-red-600 hover:text-red-800 text-xs font-medium"
@@ -417,6 +467,63 @@ export default function UsersPage() {
             : ''
         }
       />
+
+      {resetTarget && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white">
+              <h3 className="font-bold text-slate-800">Reset Password: {resetTarget.name}</h3>
+              <button
+                onClick={() => setResetTarget(null)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleResetPassword} className="p-6 space-y-4">
+              {resetError && (
+                <p className="text-sm text-red-600 bg-red-50 rounded-xl px-3 py-2">{resetError}</p>
+              )}
+
+              <p className="text-xs text-slate-500">
+                Masukkan password baru untuk akun <span className="font-medium text-slate-700">{resetTarget.email}</span>.
+              </p>
+
+              <Field label="Password Baru" required hint="Minimal 8 karakter">
+                <Input
+                  required
+                  type="password"
+                  minLength={8}
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </Field>
+
+              <Field label="Konfirmasi Password Baru" required>
+                <Input
+                  required
+                  type="password"
+                  minLength={8}
+                  value={resetPasswordConfirmation}
+                  onChange={(e) => setResetPasswordConfirmation(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </Field>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="secondary" onClick={() => setResetTarget(null)}>
+                  Batal
+                </Button>
+                <Button type="submit" loading={resetLoading}>
+                  Simpan Password
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -11,6 +11,7 @@ class AuditLogService
     public static function log(string $action, string $module, $recordId = null, $old = null, $new = null): void
     {
         $user = auth()->user();
+        $userId = $user?->id ?? (($module === 'auth' || $module === 'users') && is_numeric($recordId) ? (int) $recordId : null);
 
         $oldArray = is_object($old) && method_exists($old, 'toArray') ? $old->toArray() : $old;
         $newArray = is_object($new) && method_exists($new, 'toArray') ? $new->toArray() : $new;
@@ -33,7 +34,7 @@ class AuditLogService
         $sanitizedNew = is_array($newArray) ? self::sanitize($newArray) : $newArray;
 
         AuditLog::create([
-            'user_id' => $user?->id,
+            'user_id' => $userId,
             'action' => $action,
             'module' => $module,
             'record_id' => $recordId,

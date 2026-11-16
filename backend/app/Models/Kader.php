@@ -47,7 +47,7 @@ class Kader extends Model
     /** Batasi daftar kader sesuai cakupan posyandu pengguna. */
     public function scopeForUser(Builder $query, User $user): Builder
     {
-        if ($user->isAdmin()) {
+        if ($user->isSuperAdmin()) {
             return $query;
         }
 

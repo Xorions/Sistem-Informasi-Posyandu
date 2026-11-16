@@ -175,4 +175,29 @@ class UserController extends Controller
 
         return response()->json(['success' => true, 'message' => 'User dihapus']);
     }
+
+    public function resetPassword(Request $request, User $user)
+    {
+        if ($request->user()->role !== Role::ADMIN->value) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        $data = $request->validate([
+            'password' => 'required|min:8|confirmed',
+        ]);
+
+        $user->update([
+            'password' => Hash::make($data['password']),
+        ]);
+
+        AuditLogService::log('RESET_PASSWORD', 'users', $user->id, null, [
+            'admin_id' => $request->user()->id,
+            'target_email' => $user->email,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Password untuk pengguna {$user->name} berhasil direset.",
+        ]);
+    }
 }

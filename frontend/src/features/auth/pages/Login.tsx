@@ -4,17 +4,16 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { useToast } from '@/shared/components/ui/toast'
 import { Button, Field, Input } from '@/shared/components/ui/field'
 import { apiErrorMessage } from '@/shared/lib/api'
-import { CONFIG, DEMO_ACCOUNTS, DEMO_PASSWORD, POSYANDU_NAMES } from '@/shared/lib/config'
+import { CONFIG, POSYANDU_NAMES } from '@/shared/lib/config'
 import { ROUTES } from '@/app/routes'
-import { ROLE_DESCRIPTION, ROLE_LABEL } from '@/shared/types'
 
 export default function Login() {
   const { login, user, loading: authLoading } = useAuth()
   const toast = useToast()
   const nav = useNavigate()
 
-  const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email)
-  const [password, setPassword] = useState(DEMO_PASSWORD)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -68,7 +67,7 @@ export default function Login() {
           </div>
 
           <h1 className="text-2xl font-bold text-slate-900">Masuk ke akun Anda</h1>
-          <p className="text-sm text-slate-500 mt-2">Pilih salah satu akun demo untuk mencoba sistem.</p>
+          <p className="text-sm text-slate-500 mt-2">Silakan masuk menggunakan kredensial akun Anda.</p>
 
           <form onSubmit={handle} className="mt-8 space-y-4">
             <Field label="Email" required>
@@ -108,37 +107,6 @@ export default function Login() {
             </Button>
           </form>
 
-          <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-            <p className="text-xs font-semibold text-amber-800">Akun Demo</p>
-            <p className="text-[11px] text-amber-700 mt-1">
-              Password seluruh akun demo: <span className="font-mono">{DEMO_PASSWORD}</span>
-            </p>
-
-            <div className="mt-3 space-y-2">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  onClick={() => {
-                    setEmail(acc.email)
-                    setPassword(DEMO_PASSWORD)
-                  }}
-                  className="w-full text-left p-2.5 rounded-lg border border-amber-200 bg-white hover:border-amber-400 transition"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-amber-900">{ROLE_LABEL[acc.role]}</span>
-                    <span className="text-[10px] font-mono text-slate-500 truncate">{acc.email}</span>
-                  </div>
-                  <p className="text-[11px] text-amber-700 mt-1">{ROLE_DESCRIPTION[acc.role]}</p>
-                </button>
-              ))}
-            </div>
-
-            <p className="text-[11px] text-amber-600 mt-3">
-              Password development, jangan gunakan di production.
-            </p>
-          </div>
-
           <p className="text-sm text-center mt-6 text-slate-500">
             <Link to={ROUTES.edukasiPublic} className="text-teal-600 hover:underline">
               Lihat Edukasi Publik →
@@ -165,7 +133,7 @@ export default function Login() {
               <p className="text-xs text-teal-100">Posyandu</p>
             </div>
             <div className="bg-white/10 rounded-2xl p-4 backdrop-blur">
-              <p className="text-2xl font-bold">{DEMO_ACCOUNTS.length}</p>
+              <p className="text-2xl font-bold">3</p>
               <p className="text-xs text-teal-100">Role RBAC</p>
             </div>
             <div className="bg-white/10 rounded-2xl p-4 backdrop-blur">

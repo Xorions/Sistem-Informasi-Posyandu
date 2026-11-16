@@ -74,7 +74,7 @@ class DashboardController extends Controller
                     ->count(),
                 'follow_up_pending' => $followUpPending,
                 'perlu_pemantauan' => $followUpPending,
-                'total_imunisasi' => Immunization::forUser($user)->count(),
+                'total_imunisasi' => Immunization::forUser($user)->where('jenis', 'VAKSIN')->count(),
             ];
         }
 
@@ -110,10 +110,11 @@ class DashboardController extends Controller
         $data['total_pemeriksaan'] = Examination::whereIn('posyandu_id', $posyanduIds)
             ->where('status', 'active')
             ->count();
-        $data['total_imunisasi'] = Immunization::whereHas(
-            'child',
-            fn ($q) => $q->whereIn('posyandu_id', $posyanduIds)
-        )->count();
+        $data['total_imunisasi'] = Immunization::where('jenis', 'VAKSIN')
+            ->whereHas(
+                'child',
+                fn ($q) => $q->whereIn('posyandu_id', $posyanduIds)
+            )->count();
         $data['total_vitamin'] = Immunization::where('jenis', 'VITAMIN')
             ->whereHas('child', fn ($q) => $q->whereIn('posyandu_id', $posyanduIds))
             ->count();

@@ -54,10 +54,7 @@ class IbuHamil extends Model
 
     /**
      * Usia kehamilan dalam minggu, dihitung dari HPHT.
-     *
      * Bila HPHT kosong, diturunkan mundur dari HPL (280 hari).
-     * Nilai dibatasi 0-42 minggu agar data tidak tampak tidak masuk akal
-     * bila tanggalnya salah input.
      */
     public function getUsiaKehamilanAttribute(): int
     {
@@ -65,7 +62,7 @@ class IbuHamil extends Model
             ? Carbon::parse($this->hpht)
             : Carbon::parse($this->tanggal_perkiraan_lahir)->subDays(280);
 
-        return max(0, min(42, (int) floor($acuan->diffInDays(Carbon::now()) / 7)));
+        return max(0, (int) floor($acuan->diffInDays(Carbon::now()) / 7));
     }
 
     /** Trimester saat ini: 1, 2, atau 3. */
@@ -92,7 +89,7 @@ class IbuHamil extends Model
 
     public function scopeForUser(Builder $query, User $user): Builder
     {
-        if ($user->isAdmin()) {
+        if ($user->isSuperAdmin()) {
             return $query;
         }
 

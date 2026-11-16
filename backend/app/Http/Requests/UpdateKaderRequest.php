@@ -11,6 +11,13 @@ class UpdateKaderRequest extends FormRequest
         return $this->user()?->isAdmin() ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('nik') && ! $this->has('nik_kader')) {
+            $this->merge(['nik_kader' => $this->input('nik')]);
+        }
+    }
+
     public function rules(): array
     {
         $id = $this->route('kader')?->id ?? $this->route('id');
@@ -19,6 +26,7 @@ class UpdateKaderRequest extends FormRequest
             'posyandu_id' => 'sometimes|exists:posyandu,id',
             'user_id' => 'nullable|exists:users,id',
             'nama_kader' => 'sometimes|string|max:255',
+            'nik' => 'sometimes|nullable|digits:16|unique:kader,nik_kader,'.$id,
             'nik_kader' => 'sometimes|nullable|digits:16|unique:kader,nik_kader,'.$id,
             'no_hp' => ['sometimes', 'nullable', 'string', 'regex:/^(\+62|62|0)8[1-9][0-9]{6,11}$/'],
             'jabatan' => 'nullable|string|max:100',
@@ -33,7 +41,8 @@ class UpdateKaderRequest extends FormRequest
     {
         return [
             'nama_kader.required' => 'Nama kader wajib diisi.',
-            'nik_kader.unique' => 'NIK kader sudah terdaftar.',
+            'nik.unique' => 'NIK sudah digunakan.',
+            'nik_kader.unique' => 'NIK sudah digunakan.',
             'nik_kader.digits' => 'NIK kader harus berjumlah 16 digit angka.',
             'no_hp.regex' => 'Format nomor HP tidak valid (contoh: 081234567890).',
             'tanggal_mulai_tugas.before_or_equal' => 'Tanggal mulai tugas tidak boleh di masa depan.',

@@ -83,6 +83,37 @@ class ScheduleController extends Controller
             'status' => 'sometimes|in:scheduled,completed,cancelled',
             'posyandu_id' => 'sometimes|exists:posyandu,id',
         ]);
+
+        $posyanduId = $data['posyandu_id'] ?? $schedule->posyandu_id;
+        $date = $data['date'] ?? $schedule->date;
+        $startTime = array_key_exists('start_time', $data) ? $data['start_time'] : $schedule->start_time;
+        $endTime = array_key_exists('end_time', $data) ? $data['end_time'] : $schedule->end_time;
+
+        if ($posyanduId && $date) {
+            $overlap = Schedule::where('posyandu_id', $posyanduId)
+                ->where('id', '!=', $schedule->id)
+                ->whereDate('date', $date)
+                ->where('status', '!=', 'cancelled');
+
+            if ($startTime && $endTime) {
+                $overlap->where(function ($q) use ($startTime, $endTime) {
+                    $q->whereBetween('start_time', [$startTime, $endTime])
+                        ->orWhereBetween('end_time', [$startTime, $endTime])
+                        ->orWhere(function ($sub) use ($startTime, $endTime) {
+                            $sub->where('start_time', '<=', $startTime)
+                                ->where('end_time', '>=', $endTime);
+                        });
+                });
+            }
+
+            if ($overlap->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Jadwal bentrok dengan jadwal posyandu lain pada waktu yang sama.',
+                    'errors' => ['date' => ['Jadwal bentrok dengan jadwal posyandu lain pada waktu yang sama.']],
+                ], 422);
+            }
+        }
         $old = $schedule->toArray();
         $schedule->update($data);
         AuditLogService::log('UPDATE', 'schedules', $schedule->id, $old, $schedule->toArray());

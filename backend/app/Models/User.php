@@ -84,16 +84,36 @@ class User extends Authenticatable
     }
 
     /**
+     * Memeriksa apakah user adalah Admin Utama (memiliki akses semua posyandu).
+     * Admin cabang hanya ditugaskan pada posyandu cabang tertentu.
+     */
+    public function isSuperAdmin(): bool
+    {
+        if (! $this->isAdmin()) {
+            return false;
+        }
+
+        $assignedCount = $this->posyandus()->count();
+        $totalPosyandu = Posyandu::count();
+
+        return $assignedCount === 0 || $assignedCount >= $totalPosyandu;
+    }
+
+    /**
      * Daftar id posyandu yang boleh diakses pengguna ini.
      *
-     * ADMIN selalu punya akses ke seluruh posyandu. ORANG_TUA mendapat
-     * akses ke posyandu tempat anaknya terdaftar. Sisanya mengikuti pivot
-     * user_posyandu.
+     * Admin Utama punya akses ke seluruh posyandu.
+     * Admin Cabang & Kader terbatas pada posyandu yang ditugaskan di user_posyandu.
+     * ORANG_TUA mendapat akses ke posyandu tempat anaknya terdaftar.
      */
     public function posyanduIds(): array
     {
-        if ($this->isAdmin()) {
+        if ($this->isSuperAdmin()) {
             return Posyandu::pluck('id')->toArray();
+        }
+
+        if ($this->isAdmin() || $this->isKader()) {
+            return $this->posyandus()->pluck('posyandu.id')->toArray();
         }
 
         if ($this->isOrangTua()) {
@@ -116,7 +136,7 @@ class User extends Authenticatable
             return true;
         }
 
-        if ($this->isAdmin()) {
+        if ($this->isSuperAdmin()) {
             return true;
         }
 

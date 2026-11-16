@@ -1,7 +1,36 @@
 import { useEffect, useState } from 'react'
 import { api } from "@/shared/lib/api"
 import { Card, CardContent } from "@/shared/components/ui/card"
-import { formatDate } from "@/shared/lib/utils"
+
+const formatDateTime = (dateStr: string) => {
+  if (!dateStr) return '-'
+  try {
+    const d = new Date(dateStr)
+    const formatted = new Intl.DateTimeFormat('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(d)
+    return `${formatted} WIB`
+  } catch {
+    return dateStr
+  }
+}
+
+const getUserDisplayName = (a: any) => {
+  if (a.user?.name) return a.user.name
+  if (a.new_values) {
+    try {
+      const parsed = typeof a.new_values === 'string' ? JSON.parse(a.new_values) : a.new_values
+      if (parsed?.name) return parsed.name
+      if (parsed?.email) return parsed.email
+    } catch {}
+  }
+  return a.user_id ? `User #${a.user_id}` : 'Sistem'
+}
 
 export default function AuditLogs(){
   const [data,setData]=useState<any[]>([])
@@ -13,7 +42,30 @@ export default function AuditLogs(){
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Audit Log</h1>
       <Card><CardContent className="overflow-x-auto">
-        <table className="w-full text-xs"><thead className="bg-slate-50 text-slate-500 uppercase"><tr><th className="text-left px-4 py-3">Waktu</th><th className="text-left px-4 py-3">User</th><th className="text-left px-4 py-3">Aksi</th><th className="text-left px-4 py-3">Modul</th><th className="text-left px-4 py-3">Record</th><th className="text-left px-4 py-3">IP</th></tr></thead><tbody className="divide-y">{data.map((a:any)=><tr key={a.id}><td className="px-4 py-2">{formatDate(a.created_at)}</td><td className="px-4 py-2">{a.user?.name||a.user_id}</td><td className="px-4 py-2"><span className="px-2 py-1 rounded-full bg-slate-100">{a.action}</span></td><td className="px-4 py-2">{a.module}</td><td className="px-4 py-2">{a.record_id}</td><td className="px-4 py-2">{a.ip_address||'-'}</td></tr>)}</tbody></table>
+        <table className="w-full text-xs">
+          <thead className="bg-slate-50 text-slate-500 uppercase">
+            <tr>
+              <th className="text-left px-4 py-3">Waktu</th>
+              <th className="text-left px-4 py-3">User</th>
+              <th className="text-left px-4 py-3">Aksi</th>
+              <th className="text-left px-4 py-3">Modul</th>
+              <th className="text-left px-4 py-3">Record</th>
+              <th className="text-left px-4 py-3">IP</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {data.map((a:any)=>(
+              <tr key={a.id}>
+                <td className="px-4 py-2 font-mono whitespace-nowrap">{formatDateTime(a.created_at)}</td>
+                <td className="px-4 py-2 font-medium">{getUserDisplayName(a)}</td>
+                <td className="px-4 py-2"><span className="px-2 py-1 rounded-full bg-slate-100 font-semibold">{a.action}</span></td>
+                <td className="px-4 py-2">{a.module}</td>
+                <td className="px-4 py-2">{a.record_id || '-'}</td>
+                <td className="px-4 py-2 font-mono">{a.ip_address||'-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </CardContent>
       {meta && <div className="flex justify-between px-6 py-4 border-t text-xs text-slate-500"><span>Hal {meta.current_page}/{meta.last_page}</span><div className="flex gap-2"><button disabled={page<=1} onClick={()=>setPage(p=>p-1)} className="px-3 py-1 border rounded-lg disabled:opacity-50">Prev</button><button disabled={page>=meta.last_page} onClick={()=>setPage(p=>p+1)} className="px-3 py-1 border rounded-lg disabled:opacity-50">Next</button></div></div>}
       </Card>

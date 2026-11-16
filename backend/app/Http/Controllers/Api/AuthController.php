@@ -24,16 +24,32 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
-            return response()->json(['success' => false, 'message' => 'Email atau password salah'], 401);
+            AuditLogService::log(
+                'LOGIN_FAILED',
+                'auth',
+                $user?->id,
+                null,
+                ['email' => $request->email, 'name' => $user?->name ?? 'Tidak Dikenal', 'reason' => 'Kredensial tidak valid']
+            );
+
+            return response()->json(['success' => false, 'message' => 'Kredensial tidak valid.'], 401);
         }
 
         if (! $user->is_active) {
+            AuditLogService::log(
+                'LOGIN_FAILED',
+                'auth',
+                $user->id,
+                null,
+                ['email' => $user->email, 'name' => $user->name, 'reason' => 'Akun tidak aktif']
+            );
+
             return response()->json(['success' => false, 'message' => 'Akun tidak aktif'], 403);
         }
 
         $token = $user->createToken('posyandu-token')->plainTextToken;
 
-        AuditLogService::log('LOGIN', 'auth', $user->id, null, ['email' => $user->email]);
+        AuditLogService::log('LOGIN', 'auth', $user->id, null, ['email' => $user->email, 'name' => $user->name]);
 
         return response()->json([
             'success' => true,
