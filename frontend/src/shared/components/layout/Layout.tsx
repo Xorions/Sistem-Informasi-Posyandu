@@ -103,18 +103,18 @@ export default function Layout() {
   const posyanduNames = user?.posyandus?.map((p) => p.nama_posyandu).join(', ')
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex h-screen w-full overflow-hidden bg-slate-50 overscroll-none">
       {mobileOpen && (
         <div className="fixed inset-0 bg-black/30 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
-      {/* 1. NAVBAR KIRI (Diam di tempat / Sticky Full-Height) */}
+      {/* 1. NAVBAR KIRI (Sidebar) */}
       <aside
-        className={`fixed lg:sticky top-0 h-screen w-64 shrink-0 border-r border-slate-200 bg-white z-50 flex flex-col transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed lg:relative inset-y-0 left-0 w-64 h-full shrink-0 flex flex-col border-r border-slate-200 bg-white z-50 lg:z-20 transition-transform duration-200 lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-5 border-b border-slate-100">
+        <div className="p-5 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
               P
@@ -142,7 +142,7 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-100">
+        <div className="p-4 border-t border-slate-100 shrink-0">
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-black transition"
@@ -153,9 +153,9 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* 2. KONTEN UTAMA (Bebas digulir ke bawah panjangnya) */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+      {/* 2. AREA KONTEN KANAN */}
+      <div className="flex-1 h-full flex flex-col min-w-0 overflow-hidden">
+        <header className="lg:hidden shrink-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => setMobileOpen(true)}
             className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-50"
@@ -166,7 +166,8 @@ export default function Layout() {
           <div className="w-9" />
         </header>
 
-        <main className="flex-1 p-6 md:p-8">
+        {/* MAIN CONTENT (Hanya area ini yang dapat digulir secara vertikal) */}
+        <main className="flex-1 h-full overflow-y-auto overscroll-y-none relative p-6 md:p-8">
           <Outlet />
         </main>
       </div>
