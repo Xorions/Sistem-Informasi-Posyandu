@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\Child;
 use App\Models\Examination;
@@ -25,9 +26,16 @@ class DashboardController extends Controller
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
-        $posyanduIds = $posyanduFilter
-            ? [(int) $posyanduFilter]
-            : $user->posyanduIds();
+        // ISOLASI DATA DINAMIS BERDASARKAN ROLE
+        if ($user->role === Role::KADER->value || $user->isKader()) {
+            // Kader wajib terisolasi ke posyandu miliknya dari database
+            $kaderPosyanduId = $user->posyandu_id ?? $user->kader?->posyandu_id ?? $user->posyandus()->value('posyandu.id');
+            $posyanduIds = $kaderPosyanduId ? [(int) $kaderPosyanduId] : [-1];
+        } elseif ($posyanduFilter) {
+            $posyanduIds = [(int) $posyanduFilter];
+        } else {
+            $posyanduIds = $user->posyanduIds();
+        }
 
         // Nilai -1 memastikan query tetap valid untuk pengguna tanpa posyandu.
         if (empty($posyanduIds)) {
@@ -36,11 +44,11 @@ class DashboardController extends Controller
 
         $data = $this->baseMetrics($user, $posyanduIds);
 
-        $data['jumlah_posyandu'] = $user->isAdmin()
+        $data['jumlah_posyandu'] = $user->isAdmin() && ! $posyanduFilter
             ? Posyandu::count()
             : count(array_filter($posyanduIds, fn ($id) => $id > 0));
 
-        $this->roleExtras($user, $posyanduIds, $data);
+        $this->roleExtras($user, $posyanduIds, $data, $posyanduFilter);
         $this->charts($posyanduIds, $data);
 
         return response()->json(['success' => true, 'data' => $data]);
@@ -65,7 +73,6 @@ class DashboardController extends Controller
                     ->whereYear('examination_date', now()->year)
                     ->count(),
                 'follow_up_pending' => $followUpPending,
-                // Proxy untuk kartu "Perlu Pemantauan", sama seperti logika lama.
                 'perlu_pemantauan' => $followUpPending,
                 'total_imunisasi' => Immunization::forUser($user)->count(),
             ];
@@ -89,12 +96,12 @@ class DashboardController extends Controller
 
     /**
      * Metrik tambahan sesuai role. Kader melihat data posyandu ditugaskan,
-     * ADMIN melihat agregat seluruh Posyandu Terpadu.
+     * ADMIN melihat agregat seluruh Posyandu Terpadu atau posyandu yang difilter.
      *
      * @param  array<int, int>  $posyanduIds
      * @param  array<string, mixed>  $data
      */
-    private function roleExtras($user, array $posyanduIds, array &$data): void
+    private function roleExtras($user, array $posyanduIds, array &$data, $posyanduFilter = null): void
     {
         if ($user->isOrangTua()) {
             return;
@@ -116,9 +123,11 @@ class DashboardController extends Controller
         $data['total_ibu_hamil'] = IbuHamil::whereIn('posyandu_id', $posyanduIds)
             ->where('status', 'active')
             ->count();
+        $data['total_orang_tua'] = ($user->isAdmin() && ! $posyanduFilter)
+            ? ParentModel::count()
+            : ParentModel::whereHas('children', fn ($q) => $q->whereIn('posyandu_id', $posyanduIds))->count();
 
-        if ($user->isAdmin()) {
-            $data['total_orang_tua'] = ParentModel::count();
+        if ($user->isAdmin() && ! $posyanduFilter) {
             $data['total_anak_global'] = Child::count();
             $data['total_posyandu_global'] = Posyandu::count();
         }

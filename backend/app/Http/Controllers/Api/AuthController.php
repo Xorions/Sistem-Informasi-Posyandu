@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\AuditLogService;
 use Illuminate\Auth\Events\PasswordReset;
@@ -72,31 +73,7 @@ class AuthController extends Controller
      */
     private function userPayload(User $user): array
     {
-        return [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role,
-            'phone' => $user->phone,
-            'posyandus' => $user->posyandus->map(fn ($p) => [
-                'id' => $p->id,
-                'nama_posyandu' => $p->nama_posyandu,
-                'kode_posyandu' => $p->kode_posyandu,
-            ])->values(),
-            'parent' => $user->parent ? [
-                'id' => $user->parent->id,
-                'nama_lengkap' => $user->parent->nama_lengkap,
-                'nik' => $user->parent->nik,
-                'nomor_telepon' => $user->parent->nomor_telepon,
-            ] : null,
-            'kader' => $user->kader ? [
-                'id' => $user->kader->id,
-                'nama_kader' => $user->kader->nama_kader,
-                'nik_kader' => $user->kader->nik_kader,
-                'jabatan' => $user->kader->jabatan,
-                'posyandu_id' => $user->kader->posyandu_id,
-            ] : null,
-        ];
+        return (new UserResource($user))->resolve();
     }
 
     public function forgotPassword(Request $request)

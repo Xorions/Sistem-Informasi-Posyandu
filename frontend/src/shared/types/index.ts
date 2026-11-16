@@ -114,6 +114,8 @@ export type User = {
   role: Role
   phone?: string | null
   is_active?: boolean
+  posyandu_id?: number | null
+  posyandu?: PosyanduRef | null
   posyandus?: PosyanduRef[]
   parent?: OrangTuaRef | null
   kader?: KaderRef | null

@@ -69,19 +69,29 @@ function StatCard({
 
 export default function Dashboard() {
   const { user, role, isAdmin, isOrangTua } = useAuth()
+  const isKader = user?.role === 'KADER'
+
+  // Ambil ID dan nama posyandu dinamis dari data auth user
+  const kaderPosyanduId = user?.posyandu_id
+    ? String(user.posyandu_id)
+    : (user?.posyandus?.[0]?.id ? String(user.posyandus[0].id) : '')
+  const kaderPosyanduNama = user?.posyandu?.nama_posyandu || user?.posyandus?.[0]?.nama_posyandu || ''
 
   const [data, setData] = useState<Dash | null>(null)
-  const [posyanduId, setPosyanduId] = useState('')
+  const [posyanduId, setPosyanduId] = useState<string>(isKader ? kaderPosyanduId : '')
   const [posyandus, setPosyandus] = useState<Posyandu[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetch = async (pid?: string) => {
+  const fetchDashboardData = async (pid?: string) => {
     setLoading(true)
     setError(null)
 
     try {
-      const summary = (await apiDashboard.summary(pid ? { posyandu_id: pid } : undefined)) as unknown as Dash
+      const activeFilter = isKader ? (kaderPosyanduId || undefined) : (pid || undefined)
+      const summary = (await apiDashboard.summary(
+        activeFilter ? { posyandu_id: activeFilter } : undefined
+      )) as unknown as Dash
       setData(summary)
     } catch (err) {
       setError(apiErrorMessage(err, 'Data dashboard tidak dapat dimuat.'))
@@ -90,29 +100,39 @@ export default function Dashboard() {
     }
   }
 
+  // Sinkronisasi saat data auth user kader dimuat
+  useEffect(() => {
+    if (isKader && kaderPosyanduId) {
+      setPosyanduId(kaderPosyanduId)
+      void fetchDashboardData(kaderPosyanduId)
+    }
+  }, [isKader, kaderPosyanduId])
+
   useEffect(() => {
     void (async () => {
-      try {
-        const { data: list } = await apiPosyandu.list({ per_page: 100 })
-        setPosyandus(list)
-      } catch {
-        // Filter posyandu tidak wajib.
+      if (isAdmin) {
+        try {
+          const { data: list } = await apiPosyandu.list({ per_page: 100 })
+          setPosyandus(list)
+        } catch {
+          // Filter posyandu opsional jika error
+        }
       }
 
-      await fetch()
+      await fetchDashboardData(isKader ? (kaderPosyanduId || undefined) : undefined)
     })()
-  }, [])
+  }, [isAdmin, isKader, kaderPosyanduId])
 
   const onFilter = (val: string) => {
-    setPosyanduId(val)
-    void fetch(val || undefined)
+    if (!isKader) {
+      setPosyanduId(val)
+      void fetchDashboardData(val || undefined)
+    }
   }
 
   if (loading && !data) return <Spinner label="Memuat dashboard..." />
-  if (error) return <ErrorState message={error} onRetry={() => fetch(posyanduId || undefined)} />
+  if (error) return <ErrorState message={error} onRetry={() => fetchDashboardData(posyanduId || undefined)} />
   if (!data) return null
-
-  const showPosyanduFilter = !isOrangTua && ((user?.posyandus?.length || 0) > 1 || isAdmin)
 
   const stats = isOrangTua
     ? [
@@ -140,7 +160,7 @@ export default function Dashboard() {
         {
           label: 'Anak Terdaftar',
           value: data.anak_terdaftar,
-          sub: 'Total di posyandu terpilih',
+          sub: isKader ? `Total di ${kaderPosyanduNama || 'posyandu Anda'}` : 'Total di posyandu terpilih',
           tone: 'bg-teal-500',
         },
         {
@@ -158,7 +178,7 @@ export default function Dashboard() {
         {
           label: 'Jumlah Posyandu',
           value: data.jumlah_posyandu,
-          sub: 'Cakupan akses Anda',
+          sub: isKader ? 'Posyandu tugas Anda' : 'Cakupan akses Anda',
           tone: 'bg-orange-500',
         },
       ]
@@ -180,16 +200,27 @@ export default function Dashboard() {
           )}
         </div>
 
-        {showPosyanduFilter && (
+        {!isOrangTua && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-600">Posyandu:</span>
-            <Select value={posyanduId} onChange={(e) => onFilter(e.target.value)}>
-              <option value="">Semua Posyandu</option>
-              {posyandus.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nama_posyandu}
+            <span className="text-sm text-slate-600 font-medium">Posyandu:</span>
+            <Select
+              value={isKader ? kaderPosyanduId : posyanduId}
+              onChange={(e) => onFilter(e.target.value)}
+              disabled={isKader}
+              className={isKader ? 'bg-slate-100 cursor-not-allowed opacity-80 text-slate-700 font-medium' : ''}
+            >
+              {!isKader && <option value="">Semua Posyandu</option>}
+              {isKader ? (
+                <option value={kaderPosyanduId}>
+                  {kaderPosyanduNama || 'Memuat Posyandu...'}
                 </option>
-              ))}
+              ) : (
+                posyandus.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nama_posyandu}
+                  </option>
+                ))
+              )}
             </Select>
           </div>
         )}

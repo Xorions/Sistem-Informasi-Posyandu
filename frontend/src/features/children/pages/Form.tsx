@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from "@/shared/components/ui/card"
 import { Button, Field, Input, Select, Textarea } from "@/shared/components/ui/field"
 import { useToast } from "@/shared/components/ui/toast"
 import { buildDirtyPayload, isMasked, isValidNik, isValidPhone } from "@/shared/lib/utils"
+import { useAuth } from '@/features/auth/AuthContext'
 
 type ParentInput = {
   parent_id?: number | ''
@@ -26,11 +27,18 @@ export default function ChildForm({ mode }: { mode: 'create' | 'edit' }) {
   const { id } = useParams()
   const nav = useNavigate()
   const toast = useToast()
+  const { user } = useAuth()
+  const isKader = user?.role === 'KADER'
+
+  // Ambil ID dan nama posyandu dinamis dari data user login
+  const kaderPosyanduId = user?.posyandu_id ?? user?.posyandus?.[0]?.id ?? null
+  const kaderPosyanduNama = user?.posyandu?.nama_posyandu || user?.posyandus?.[0]?.nama_posyandu || ''
+
   const [posyandus, setPosyandus] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [form, setForm] = useState({
-    posyandu_id: '',
+    posyandu_id: isKader && kaderPosyanduId ? String(kaderPosyanduId) : '',
     nik: '',
     nama_lengkap: '',
     nama_panggilan: '',
@@ -46,8 +54,17 @@ export default function ChildForm({ mode }: { mode: 'create' | 'edit' }) {
   const [parents, setParents] = useState<ParentInput[]>([])
   const [existingParents, setExistingParents] = useState<any[]>([])
 
+  // Sinkronisasi otomatis saat user login selesai dimuat
+  useEffect(() => {
+    if (mode === 'create' && isKader && kaderPosyanduId) {
+      setForm(prev => ({ ...prev, posyandu_id: String(kaderPosyanduId) }))
+    }
+  }, [mode, isKader, kaderPosyanduId])
+
   useEffect(()=>{
-    api.get('/posyandu', { params: { per_page: 100 }}).then(r=>setPosyandus(r.data.data?.data||r.data.data||[])).catch(()=>{})
+    if (!isKader) {
+      api.get('/posyandu', { params: { per_page: 100 }}).then(r=>setPosyandus(r.data.data?.data||r.data.data||[])).catch(()=>{})
+    }
     api.get('/parents', { params: { per_page: 100 }}).then(r=>setExistingParents(r.data.data?.data || r.data.data || [] )).catch(()=>{})
     if (mode==='edit' && id) {
       api.get(`/children/${id}`).then(r=>{
@@ -96,11 +113,15 @@ export default function ChildForm({ mode }: { mode: 'create' | 'edit' }) {
     e.preventDefault()
     setErrors({})
 
+    const finalPosyanduId = isKader
+      ? (kaderPosyanduId ? Number(kaderPosyanduId) : null)
+      : (form.posyandu_id ? parseInt(form.posyandu_id) : null)
+
     const errs: Record<string, string> = {}
     if (!form.nama_lengkap.trim()) errs.nama_lengkap = 'Nama lengkap wajib diisi.'
     if (!form.tempat_lahir.trim()) errs.tempat_lahir = 'Tempat lahir wajib diisi.'
     if (!form.tanggal_lahir) errs.tanggal_lahir = 'Tanggal lahir wajib diisi.'
-    if (!form.posyandu_id) errs.posyandu_id = 'Posyandu wajib dipilih.'
+    if (!finalPosyanduId) errs.posyandu_id = 'Posyandu wajib dipilih.'
     if (!form.alamat.trim()) errs.alamat = 'Alamat wajib diisi.'
 
     if (isMasked(form.nik)) errs.nik = 'Data tersamar tidak boleh dikirim langsung.'
@@ -144,7 +165,7 @@ export default function ChildForm({ mode }: { mode: 'create' | 'edit' }) {
       if (mode==='create') {
         const payload:any = {
           ...form,
-          posyandu_id: parseInt(form.posyandu_id),
+          posyandu_id: finalPosyanduId,
           nik: form.nik || null,
           nomor_kk: form.nomor_kk || null,
           nama_panggilan: form.nama_panggilan || null,
@@ -302,12 +323,27 @@ export default function ChildForm({ mode }: { mode: 'create' | 'edit' }) {
               <Field label="Posyandu" required error={errors.posyandu_id}>
                 <Select
                   required
-                  value={form.posyandu_id}
-                  onChange={e=>setForm({...form, posyandu_id:e.target.value})}
+                  value={isKader ? String(kaderPosyanduId || '') : form.posyandu_id}
+                  onChange={e => {
+                    if (!isKader) {
+                      setForm({ ...form, posyandu_id: e.target.value })
+                    }
+                  }}
                   hasError={!!errors.posyandu_id}
+                  disabled={isKader}
                 >
-                  <option value="">Pilih Posyandu</option>
-                  {posyandus.map((p:any)=><option key={p.id} value={p.id}>{p.nama_posyandu} ({p.kode_posyandu})</option>)}
+                  {!isKader && <option value="">Pilih Posyandu</option>}
+                  {isKader ? (
+                    <option value={String(kaderPosyanduId || '')}>
+                      {kaderPosyanduNama || 'Memuat Posyandu...'}
+                    </option>
+                  ) : (
+                    posyandus.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nama_posyandu} ({p.kode_posyandu})
+                      </option>
+                    ))
+                  )}
                 </Select>
               </Field>
             </div>

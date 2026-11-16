@@ -31,6 +31,19 @@ class User extends Authenticatable
         return $this->belongsToMany(Posyandu::class, 'user_posyandu')->withTimestamps();
     }
 
+    public function getPosyanduIdAttribute(): ?int
+    {
+        if ($this->relationLoaded('kader') && $this->kader) {
+            return $this->kader->posyandu_id;
+        }
+
+        if ($this->relationLoaded('posyandus') && $this->posyandus->isNotEmpty()) {
+            return $this->posyandus->first()->id;
+        }
+
+        return $this->kader?->posyandu_id ?? $this->posyandus()->value('posyandu.id');
+    }
+
     /** Data orang tua yang tertaut dengan akun ini. Hanya relevan untuk ORANG_TUA. */
     public function parent()
     {

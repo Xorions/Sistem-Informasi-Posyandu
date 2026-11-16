@@ -13,24 +13,38 @@ import { can } from '@/shared/lib/rbac'
 export default function ChildrenList() {
   const toast = useToast()
   // Orang tua hanya melihat anaknya, tanpa tombol ubah atau hapus.
-  const { role } = useAuth()
+  const { user, role } = useAuth()
   const canManage = can(role, 'manage-anak')
+  const isKader = user?.role === 'KADER'
+
+  // Ambil ID dan nama posyandu dinamis dari data auth user
+  const kaderPosyanduId = user?.posyandu_id ? String(user.posyandu_id) : (user?.posyandus?.[0]?.id ? String(user.posyandus[0].id) : '')
+  const kaderPosyanduNama = user?.posyandu?.nama_posyandu || user?.posyandus?.[0]?.nama_posyandu || ''
+
   const [data, setData] = useState<any[]>([])
   const [meta, setMeta] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const debounced = useDebounce(search, 500)
-  const [posyanduId, setPosyanduId] = useState('')
+  const [posyanduId, setPosyanduId] = useState<string>(isKader ? kaderPosyanduId : '')
   const [posyandus, setPosyandus] = useState<any[]>([])
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(10)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Sinkronisasi otomatis saat user login selesai dimuat
+  useEffect(() => {
+    if (isKader && kaderPosyanduId) {
+      setPosyanduId(kaderPosyanduId)
+    }
+  }, [isKader, kaderPosyanduId])
+
   const fetch = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/children', { params: { search: debounced || undefined, posyandu_id: posyanduId || undefined, page, per_page: perPage } })
+      const activePosyanduFilter = isKader ? (kaderPosyanduId || undefined) : (posyanduId || undefined)
+      const res = await api.get('/children', { params: { search: debounced || undefined, posyandu_id: activePosyanduFilter, page, per_page: perPage } })
       setData(res.data.data)
       setMeta(res.data.meta)
     } catch (err: any) {
@@ -38,8 +52,14 @@ export default function ChildrenList() {
     } finally { setLoading(false) }
   }
 
-  useEffect(() => { fetch() }, [debounced, posyanduId, page, perPage])
-  useEffect(()=>{ api.get('/posyandu', { params: { per_page: 100 }}).then(r=>setPosyandus(r.data.data?.data || r.data.data || [])).catch(()=>{}) },[])
+  useEffect(() => { fetch() }, [debounced, posyanduId, kaderPosyanduId, page, perPage])
+  useEffect(() => {
+    if (!isKader) {
+      api.get('/posyandu', { params: { per_page: 100 } })
+        .then(r => setPosyandus(r.data.data?.data || r.data.data || []))
+        .catch(() => {})
+    }
+  }, [isKader])
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -68,9 +88,31 @@ export default function ChildrenList() {
       <Card>
         <CardContent className="flex flex-wrap gap-3">
           <input value={search} onChange={e=>{setSearch(e.target.value); setPage(1)}} placeholder="Cari nama, NIK, tempat lahir..." className="flex-1 min-w-[220px] px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500" />
-          <select value={posyanduId} onChange={e=>{setPosyanduId(e.target.value); setPage(1)}} className="px-3 py-2.5 rounded-xl border border-slate-200 bg-white">
-            <option value="">Semua Posyandu</option>
-            {posyandus.map((p:any)=><option key={p.id} value={p.id}>{p.nama_posyandu}</option>)}
+          <select
+            value={isKader ? kaderPosyanduId : posyanduId}
+            onChange={e => {
+              if (!isKader) {
+                setPosyanduId(e.target.value)
+                setPage(1)
+              }
+            }}
+            disabled={isKader}
+            className={`px-3 py-2.5 rounded-xl border border-slate-200 bg-white ${
+              isKader ? 'bg-slate-100 cursor-not-allowed opacity-80 text-slate-700 font-medium' : ''
+            }`}
+          >
+            {!isKader && <option value="">Semua Posyandu</option>}
+            {isKader ? (
+              <option value={kaderPosyanduId}>
+                {kaderPosyanduNama || 'Memuat Posyandu...'}
+              </option>
+            ) : (
+              posyandus.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.nama_posyandu}
+                </option>
+              ))
+            )}
           </select>
           <select value={perPage} onChange={e=>setPerPage(parseInt(e.target.value))} className="px-3 py-2.5 rounded-xl border border-slate-200 bg-white">
             <option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>

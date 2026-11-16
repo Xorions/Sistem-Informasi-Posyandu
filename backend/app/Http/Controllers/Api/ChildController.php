@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreChildRequest;
 use App\Http\Requests\UpdateChildRequest;
@@ -21,16 +22,24 @@ class ChildController extends Controller
         $user = $request->user();
         Gate::authorize('viewAny', Child::class);
         $q = Child::with(['posyandu', 'parents'])->withCount('examinations');
-        // Data isolation: ADMIN melihat semua, KADER terbatas pada posyandu yang
-        // ditugaskan, ORANG_TUA hanya melihat anaknya sendiri.
-        $q->forUser($user);
 
-        if ($posyanduId = $request->query('posyandu_id')) {
-            if (! $user->canAccessPosyandu((int) $posyanduId)) {
-                return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        // ISOLASI DATA DINAMIS BERDASARKAN ROLE
+        if ($user->role === Role::KADER->value || $user->isKader()) {
+            // Ambil ID Posyandu dinamis dari relasi database akun kader yang sedang login
+            $kaderPosyanduId = $user->posyandus()->value('posyandu.id') ?? $user->kader?->posyandu_id;
+            $q->where('posyandu_id', $kaderPosyanduId);
+        } else {
+            // Role ADMIN atau ORANG_TUA
+            $q->forUser($user);
+
+            if ($posyanduId = $request->query('posyandu_id')) {
+                if (! $user->canAccessPosyandu((int) $posyanduId)) {
+                    return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+                }
+                $q->where('posyandu_id', $posyanduId);
             }
-            $q->where('posyandu_id', $posyanduId);
         }
+
         if ($search = $request->query('search')) {
             $escaped = SqlHelper::escapeLike($search);
             $q->where(function ($qq) use ($escaped) {
@@ -73,12 +82,24 @@ class ChildController extends Controller
     {
         Gate::authorize('create', Child::class);
         $user = $request->user();
-        if (! $user->canAccessPosyandu($request->posyandu_id)) {
+
+        $payload = $request->only([
+            'posyandu_id', 'nik', 'nama_lengkap', 'nama_panggilan',
+            'tempat_lahir', 'tanggal_lahir', 'jenis_kelamin', 'alamat',
+            'nomor_kk', 'status'
+        ]);
+
+        // Paksa posyandu_id secara dinamis dari relasi database kader yang login
+        if ($user->role === Role::KADER->value || $user->isKader()) {
+            $payload['posyandu_id'] = $user->posyandus()->value('posyandu.id') ?? $user->kader?->posyandu_id;
+        }
+
+        if (! $user->canAccessPosyandu((int) $payload['posyandu_id'])) {
             return response()->json(['success' => false, 'message' => 'Tidak memiliki akses ke Posyandu ini'], 403);
         }
 
-        return DB::transaction(function () use ($request) {
-            $child = Child::create($request->only(['posyandu_id', 'nik', 'nama_lengkap', 'nama_panggilan', 'tempat_lahir', 'tanggal_lahir', 'jenis_kelamin', 'alamat', 'nomor_kk', 'status']));
+        return DB::transaction(function () use ($payload, $request) {
+            $child = Child::create($payload);
             $child->load(['posyandu', 'parents']);
             // handle parents pivot
             if ($request->parents) {
@@ -100,7 +121,10 @@ class ChildController extends Controller
                     }
                 }
             }
-            AuditLogService::log('CREATE', 'children', $child->id, null, $child->toArray());
+            AuditLogService::log('CREATE', 'children', $child->id, null, [
+                'nama_lengkap' => $child->nama_lengkap,
+                'posyandu_id' => $child->posyandu_id,
+            ]);
             $child->load(['posyandu', 'parents']);
 
             return response()->json(['success' => true, 'message' => 'Data anak berhasil ditambahkan', 'data' => new ChildResource($child)], 201);

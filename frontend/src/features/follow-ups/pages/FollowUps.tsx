@@ -8,6 +8,20 @@ import { formatDate } from "@/shared/lib/utils"
 import { useAuth } from '@/features/auth/AuthContext'
 import { can } from '@/shared/lib/rbac'
 
+const FOLLOWUP_STATUS_LABEL: Record<string, string> = {
+  pending: 'Menunggu',
+  in_progress: 'Dalam Proses',
+  completed: 'Selesai',
+  cancelled: 'Dibatalkan',
+}
+
+const FOLLOWUP_STATUS_CLASS: Record<string, string> = {
+  pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  in_progress: 'bg-blue-50 text-blue-700 border-blue-200',
+  completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  cancelled: 'bg-red-50 text-red-700 border-red-200',
+}
+
 export default function FollowUps() {
   const toast = useToast()
   // Orang tua hanya boleh melihat, tidak boleh menambah atau mengubah status.
@@ -133,7 +147,9 @@ export default function FollowUps() {
                   <td className="px-4 py-3 text-slate-600">{f.type}</td>
                   <td className="px-4 py-3 text-slate-600">{formatDate(f.follow_up_date)}</td>
                   <td className="px-4 py-3">
-                    <Badge label={f.status} />
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${FOLLOWUP_STATUS_CLASS[f.status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                      {FOLLOWUP_STATUS_LABEL[f.status] || f.status}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     {canManage ? (
@@ -142,10 +158,10 @@ export default function FollowUps() {
                         onChange={(e) => updateStatus(f.id, e.target.value)}
                         className="px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white"
                       >
-                        <option value="pending">pending</option>
-                        <option value="in_progress">in_progress</option>
-                        <option value="completed">completed</option>
-                        <option value="cancelled">cancelled</option>
+                        <option value="pending">Menunggu</option>
+                        <option value="in_progress">Dalam Proses</option>
+                        <option value="completed">Selesai</option>
+                        <option value="cancelled">Dibatalkan</option>
                       </select>
                     ) : (
                       <span className="text-xs text-slate-400">baca saja</span>
@@ -239,10 +255,10 @@ export default function FollowUps() {
                     if (errors.status) setErrors({ ...errors, status: '' })
                   }}
                 >
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
+                  <option value="pending">Menunggu</option>
+                  <option value="in_progress">Dalam Proses</option>
+                  <option value="completed">Selesai</option>
+                  <option value="cancelled">Dibatalkan</option>
                 </Select>
               </Field>
 
