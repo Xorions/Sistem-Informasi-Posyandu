@@ -87,8 +87,8 @@ export default function ChildrenList() {
       </div>
 
       <Card>
-        <CardContent className="flex flex-wrap gap-3">
-          <input value={search} onChange={e=>{setSearch(e.target.value); setPage(1)}} placeholder="Cari nama, NIK, tempat lahir..." className="flex-1 min-w-[220px] px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+        <CardContent className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
+          <input value={search} onChange={e=>{setSearch(e.target.value); setPage(1)}} placeholder="Cari nama, NIK, tempat lahir..." className="flex-1 min-w-0 sm:min-w-[220px] px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500" />
           <select
             value={isKader ? kaderPosyanduId : posyanduId}
             onChange={e => {
@@ -132,7 +132,8 @@ export default function ChildrenList() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden md:block overflow-x-auto w-full">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                 <tr>
@@ -173,6 +174,59 @@ export default function ChildrenList() {
               </tbody>
             </table>
           </div>
+
+          <div className="block md:hidden space-y-4 mt-4">
+            {data.map((c: any) => (
+              <Card key={c.id}>
+                <div className="p-4 border-b border-slate-100 flex justify-between items-start gap-3">
+                  <Link to={`/children/${c.id}`} className="font-semibold text-slate-900 hover:text-teal-600">
+                    {c.nama_lengkap}
+                  </Link>
+                  <StatusBadge status={c.status} />
+                </div>
+                <div className="p-4 grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-slate-500">NIK</p>
+                    <p className="text-slate-700">{c.nik || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Tanggal Lahir</p>
+                    <p className="text-slate-700">{formatDate(c.tanggal_lahir)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Jenis Kelamin</p>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${c.jenis_kelamin === 'L' ? 'bg-sky-100 text-sky-700' : 'bg-pink-100 text-pink-700'}`}>
+                      {c.jenis_kelamin === 'L' ? 'L' : 'P'}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Posyandu</p>
+                    <p className="text-slate-700">{c.posyandu?.nama_posyandu || '-'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs text-slate-500">Orang Tua</p>
+                    <p className="text-slate-700">{c.parents?.length ? c.parents.map((p: any) => p.nama_lengkap).join(', ') : '-'}</p>
+                  </div>
+                </div>
+                <div className="p-4 pt-0 flex gap-2">
+                  <Link to={`/children/${c.id}`} className="flex-1 text-center px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Lihat
+                  </Link>
+                  {canManage && (
+                    <>
+                      <Link to={`/children/${c.id}/edit`} className="flex-1 text-center px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                        Ubah
+                      </Link>
+                      <button onClick={() => setDeleteId(c.id)} className="flex-1 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-sm font-medium text-red-700 hover:bg-red-100">
+                        Hapus
+                      </button>
+                    </>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+          </>
         )}
         {meta && (
           <div className="flex flex-wrap justify-between items-center gap-3 px-6 py-4 border-t">

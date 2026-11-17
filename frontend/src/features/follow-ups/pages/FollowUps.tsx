@@ -352,7 +352,7 @@ export default function FollowUps() {
           )}
 
           {/* 3. TAMPILAN DESKTOP DATAGRID (Tabel) (>= md) */}
-          <div className="hidden md:block">
+          <div className="hidden md:block overflow-x-auto w-full">
         <div className="border border-slate-200 shadow-sm rounded-2xl overflow-hidden bg-white">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left border-collapse">

@@ -61,7 +61,17 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ]
 
-function Section({ title, items, role }: { title: string; items: NavItem[]; role: Role | null }) {
+function Section({
+  title,
+  items,
+  role,
+  onNavigate,
+}: {
+  title: string
+  items: NavItem[]
+  role: Role | null
+  onNavigate?: () => void
+}) {
   const visible = items.filter((i) => can(role, i.permission))
 
   if (visible.length === 0) return null
@@ -74,6 +84,7 @@ function Section({ title, items, role }: { title: string; items: NavItem[]; role
           key={it.to}
           to={it.to}
           end={it.to === ROUTES.dashboard}
+          onClick={onNavigate}
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
               isActive
@@ -140,7 +151,13 @@ export default function Layout() {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
           {NAV_SECTIONS.map((s) => (
-            <Section key={s.title} title={s.title} items={s.items} role={role} />
+            <Section
+              key={s.title}
+              title={s.title}
+              items={s.items}
+              role={role}
+              onNavigate={() => setMobileOpen(false)}
+            />
           ))}
         </nav>
 
