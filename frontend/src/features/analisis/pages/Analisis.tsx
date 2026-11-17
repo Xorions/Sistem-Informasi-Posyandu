@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from "@/shared/lib/api"
 import { Card, CardContent, CardHeader } from "@/shared/components/ui/card"
+import { AnalysisSkeleton } from "@/shared/components/ui/Skeleton"
 import { useDebounce } from "@/shared/hooks/useDebounce"
 import { Badge } from "@/shared/components/ui/badge"
 import { Link } from 'react-router-dom'
@@ -15,14 +16,18 @@ export default function Analisis() {
   const [recommendations, setRecommendations] = useState<any[]>([])
   const [history, setHistory] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingChildren, setLoadingChildren] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
 
   const fetchChildren = async () => {
     try {
+      setLoadingChildren(true)
       const r = await api.get('/children', { params: { search: debounced || undefined, per_page: 20 } })
       setChildren(r.data.data)
       if (r.data.data.length && !selected) setSelected(r.data.data[0])
-    } catch {}
+    } catch {} finally {
+      setLoadingChildren(false)
+    }
   }
   useEffect(()=>{ fetchChildren() }, [debounced])
 
@@ -81,10 +86,12 @@ export default function Analisis() {
         </CardContent>
       </Card>
 
-      {!selected ? (
+      {loadingChildren && !selected ? (
+        <AnalysisSkeleton />
+      ) : !selected ? (
         <Card><CardContent className="text-center py-10 text-slate-500">Pilih anak untuk lihat analisis.</CardContent></Card>
       ) : loading ? (
-        <Card><CardContent className="text-center py-10">Memuat analisis...</CardContent></Card>
+        <AnalysisSkeleton />
       ) : !analysis ? (
         <Card><CardContent className="text-center py-10 text-slate-500">Belum ada data.</CardContent></Card>
       ) : (

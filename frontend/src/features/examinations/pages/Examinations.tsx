@@ -8,6 +8,23 @@ import { formatDate, parseNumeric } from "@/shared/lib/utils"
 import { useAuth } from '@/features/auth/AuthContext'
 import { can } from '@/shared/lib/rbac'
 
+function HistorySkeleton() {
+  return (
+    <div className="animate-pulse space-y-4">
+      {Array.from({ length: 4 }).map((_, idx) => (
+        <div key={idx} className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-full bg-slate-200 shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-slate-200 rounded w-1/3" />
+            <div className="h-3 bg-slate-100 rounded w-3/4" />
+            <div className="h-3 bg-slate-100 rounded w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function Examinations() {
   const toast = useToast()
   const [searchParams] = useSearchParams()
@@ -362,7 +379,11 @@ export default function Examinations() {
           <Card>
             <CardHeader title="Riwayat Terbaru" />
             <CardContent>
-              {loading ? <p className="text-sm text-slate-500">Memuat...</p> : exams.length===0 ? <p className="text-sm text-slate-500">Belum ada pemeriksaan.</p> : (
+              {loading ? (
+                <HistorySkeleton />
+              ) : exams.length === 0 ? (
+                <p className="text-sm text-slate-500">Belum ada pemeriksaan.</p>
+              ) : (
                 <div className="space-y-3">
                   {exams.map((e:any)=>(
                     <div key={e.id} className="p-4 rounded-xl border flex justify-between gap-4">

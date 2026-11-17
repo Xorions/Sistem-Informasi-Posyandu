@@ -3,6 +3,7 @@ import { api, apiErrorMessage, apiValidationErrors } from "@/shared/lib/api"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button, Field, Input, Select, Textarea } from "@/shared/components/ui/field"
+import { CardSkeleton, TableSkeleton } from "@/shared/components/ui/Skeleton"
 import { useToast } from "@/shared/components/ui/toast"
 import { formatDate } from "@/shared/lib/utils"
 import { useAuth } from '@/features/auth/AuthContext'
@@ -28,6 +29,7 @@ export default function FollowUps() {
   const { role } = useAuth()
   const canManage = can(role, 'manage-followup')
   const [data, setData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [children, setChildren] = useState<any[]>([])
   const [posyandus, setPosyandus] = useState<any[]>([])
   const [show, setShow] = useState(false)
@@ -45,9 +47,12 @@ export default function FollowUps() {
 
   const fetch = async () => {
     try {
+      setLoading(true)
       const r = await api.get('/follow-ups', { params: { per_page: 50 } })
       setData(r.data.data?.data || r.data.data || [])
-    } catch {}
+    } catch {} finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -327,19 +332,27 @@ export default function FollowUps() {
         </div>
       </div>
 
-      {/* State Kosong */}
-      {filteredData.length === 0 && (
-        <div className="p-10 text-center bg-white rounded-2xl border border-dashed border-slate-200">
-          <p className="text-3xl mb-2">📋</p>
-          <p className="text-base font-semibold text-slate-800">Tidak ada data tindak lanjut</p>
-          <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
-            {search ? 'Tidak ditemukan data yang sesuai kata kunci pencarian.' : 'Belum ada agenda tindak lanjut.'}
-          </p>
-        </div>
-      )}
+      {/* Loading Skeleton */}
+      {loading ? (
+        <>
+          <TableSkeleton rows={5} cols={5} className="hidden md:block" />
+          <CardSkeleton count={4} className="block md:hidden" />
+        </>
+      ) : (
+        <>
+          {/* State Kosong */}
+          {filteredData.length === 0 && (
+            <div className="p-10 text-center bg-white rounded-2xl border border-dashed border-slate-200">
+              <p className="text-3xl mb-2">📋</p>
+              <p className="text-base font-semibold text-slate-800">Tidak ada data tindak lanjut</p>
+              <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
+                {search ? 'Tidak ditemukan data yang sesuai kata kunci pencarian.' : 'Belum ada agenda tindak lanjut.'}
+              </p>
+            </div>
+          )}
 
-      {/* 3. TAMPILAN DESKTOP DATAGRID (Tabel) (>= md) */}
-      <div className="hidden md:block">
+          {/* 3. TAMPILAN DESKTOP DATAGRID (Tabel) (>= md) */}
+          <div className="hidden md:block">
         <div className="border border-slate-200 shadow-sm rounded-2xl overflow-hidden bg-white">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left border-collapse">
@@ -498,6 +511,8 @@ export default function FollowUps() {
           )
         })}
       </div>
+      </>
+      )}
 
       {/* CTA Tombol Tambah Mobile: Fixed Bottom Floating Target */}
       {canManage && (

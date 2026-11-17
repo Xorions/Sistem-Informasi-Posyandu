@@ -15,6 +15,7 @@ import { apiDashboard, apiPosyandu } from '@/shared/lib/api'
 import { apiErrorMessage } from '@/shared/lib/api'
 import { Card, CardContent } from '@/shared/components/ui/card'
 import { Select, Spinner, ErrorState } from '@/shared/components/ui/field'
+import { DashboardSkeleton } from '@/shared/components/ui/Skeleton'
 import { useAuth } from '@/features/auth/AuthContext'
 import { ROUTES } from '@/app/routes'
 import { can } from '@/shared/lib/rbac'
@@ -130,7 +131,7 @@ export default function Dashboard() {
     }
   }
 
-  if (loading && !data) return <Spinner label="Memuat dashboard..." />
+  if (loading && !data) return <DashboardSkeleton />
   if (error) return <ErrorState message={error} onRetry={() => fetchDashboardData(posyanduId || undefined)} />
   if (!data) return null
 

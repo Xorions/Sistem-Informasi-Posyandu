@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api, apiErrorMessage } from "@/shared/lib/api"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge, StatusBadge } from "@/shared/components/ui/badge"
+import { TableSkeleton } from "@/shared/components/ui/Skeleton"
 import { ConfirmDeleteModal } from "@/shared/components/ui/modal"
 import { useToast } from "@/shared/components/ui/toast"
 import { useDebounce } from "@/shared/hooks/useDebounce"
@@ -121,8 +122,9 @@ export default function ChildrenList() {
       </Card>
 
       <Card>
-        {loading ? <div className="p-10 text-center text-slate-500">Memuat data anak...</div> :
-         data.length===0 ? (
+        {loading ? (
+          <TableSkeleton rows={5} cols={8} />
+        ) : data.length === 0 ? (
           <div className="p-10 text-center">
             <p className="text-slate-600 font-medium">Belum ada data anak.</p>
             {canManage && (

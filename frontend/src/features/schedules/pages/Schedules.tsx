@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { apiErrorMessage, apiPosyandu, apiSchedules, apiValidationErrors } from '@/shared/lib/api'
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/card'
 import { StatusBadge } from '@/shared/components/ui/badge'
+import { CardSkeleton } from '@/shared/components/ui/Skeleton'
 import { Button, EmptyState, ErrorState, Field, Input, Select, Spinner, Textarea } from '@/shared/components/ui/field'
 import { ConfirmDeleteModal } from '@/shared/components/ui/modal'
 import { useToast } from '@/shared/components/ui/toast'
@@ -235,51 +236,53 @@ export default function SchedulesPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent>
-          {loading ? (
-            <Spinner />
-          ) : error ? (
-            <ErrorState message={error} onRetry={load} />
-          ) : !Array.isArray(rows) || rows.length === 0 ? (
-            <EmptyState title="Belum ada jadwal" description="Tambahkan jadwal kegiatan posyandu berikutnya." />
-          ) : (
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {rows.map((s) => (
-                <Card key={s.id}>
-                  <CardContent>
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-semibold text-slate-800">{s.title}</p>
-                      <StatusBadge status={s.status} />
-                    </div>
-
-                    <p className="text-xs text-slate-500 mt-1">{s.posyandu?.nama_posyandu}</p>
-
-                    <p className="text-sm text-slate-700 mt-2 font-medium">
-                      {formatDate(s.date)}
-                      {s.start_time && ` · ${s.start_time}${s.end_time ? ` - ${s.end_time}` : ''}`}
-                    </p>
-
-                    {s.location && <p className="text-xs text-slate-600 mt-1">{s.location}</p>}
-                    {s.description && <p className="text-xs text-slate-500 mt-1">{s.description}</p>}
-
-                    {canManage && (
-                      <div className="flex justify-end gap-2 mt-4">
-                        <Button size="sm" variant="secondary" onClick={() => openEdit(s)}>
-                          Ubah
-                        </Button>
-                        <Button size="sm" variant="danger" onClick={() => setDeleting(s)}>
-                          Hapus
-                        </Button>
+      {loading ? (
+        <CardSkeleton count={6} />
+      ) : (
+        <Card>
+          <CardContent>
+            {error ? (
+              <ErrorState message={error} onRetry={load} />
+            ) : !Array.isArray(rows) || rows.length === 0 ? (
+              <EmptyState title="Belum ada jadwal" description="Tambahkan jadwal kegiatan posyandu berikutnya." />
+            ) : (
+              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {rows.map((s) => (
+                  <Card key={s.id}>
+                    <CardContent>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-slate-800">{s.title}</p>
+                        <StatusBadge status={s.status} />
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+
+                      <p className="text-xs text-slate-500 mt-1">{s.posyandu?.nama_posyandu}</p>
+
+                      <p className="text-sm text-slate-700 mt-2 font-medium">
+                        {formatDate(s.date)}
+                        {s.start_time && ` · ${s.start_time}${s.end_time ? ` - ${s.end_time}` : ''}`}
+                      </p>
+
+                      {s.location && <p className="text-xs text-slate-600 mt-1">{s.location}</p>}
+                      {s.description && <p className="text-xs text-slate-500 mt-1">{s.description}</p>}
+
+                      {canManage && (
+                        <div className="flex justify-end gap-2 mt-4">
+                          <Button size="sm" variant="secondary" onClick={() => openEdit(s)}>
+                            Ubah
+                          </Button>
+                          <Button size="sm" variant="danger" onClick={() => setDeleting(s)}>
+                            Hapus
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">

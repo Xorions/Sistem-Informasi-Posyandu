@@ -5,6 +5,7 @@ import { ROUTES } from '@/app/routes'
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/card'
 import { StatusBadge } from '@/shared/components/ui/badge'
 import { Button, EmptyState, ErrorState, Field, Input, Select, Spinner, Textarea } from '@/shared/components/ui/field'
+import { CardSkeleton } from '@/shared/components/ui/Skeleton'
 import { ConfirmDeleteModal } from '@/shared/components/ui/modal'
 import { useToast } from '@/shared/components/ui/toast'
 import { can } from '@/shared/lib/rbac'
@@ -291,7 +292,7 @@ export default function IbuHamilPage() {
       <Card>
         <CardContent>
           {loading ? (
-            <Spinner />
+            <CardSkeleton count={6} />
           ) : error ? (
             <ErrorState message={error} onRetry={load} />
           ) : rows.length === 0 ? (

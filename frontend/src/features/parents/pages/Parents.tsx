@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { can } from '@/shared/lib/rbac'
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Button, Field, Input, Select, Textarea } from "@/shared/components/ui/field"
+import { TableSkeleton } from "@/shared/components/ui/Skeleton"
 import { ConfirmDeleteModal } from "@/shared/components/ui/modal"
 import { useToast } from "@/shared/components/ui/toast"
 import { useDebounce } from "@/shared/hooks/useDebounce"
@@ -14,6 +15,7 @@ export default function Parents() {
   const toast = useToast()
   const canManage = can(role, 'manage-orang-tua')
   const [data, setData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [meta, setMeta] = useState<any>(null)
   const [search, setSearch] = useState('')
   const debounced = useDebounce(search,500)
@@ -29,7 +31,16 @@ export default function Parents() {
   const [deleteId, setDeleteId]=useState<number|null>(null)
 
   const fetch = async()=>{
-    try{ const r=await api.get('/parents',{params:{search:debounced||undefined, page}}); setData(r.data.data); setMeta(r.data.meta)}catch{ toast.show('Gagal memuat','error')}
+    setLoading(true)
+    try{
+      const r=await api.get('/parents',{params:{search:debounced||undefined, page}});
+      setData(r.data.data);
+      setMeta(r.data.meta);
+    }catch{
+      toast.show('Gagal memuat','error')
+    }finally{
+      setLoading(false)
+    }
   }
   useEffect(()=>{ fetch()},[debounced, page])
 
@@ -183,36 +194,62 @@ export default function Parents() {
       </div>
       <Card><CardContent className="flex gap-3"><input value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}} placeholder="Cari nama, NIK..." className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200"/><button onClick={()=>fetch()} className="px-4 py-2.5 rounded-xl border border-slate-200">Cari</button></CardContent></Card>
       <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-              <tr>
-                <th className="text-left px-4 py-3">Nama</th>
-                <th className="text-left px-4 py-3">NIK</th>
-                <th className="text-left px-4 py-3">Telepon</th>
-                <th className="text-left px-4 py-3">Alamat</th>
-                {canManage && <th className="text-right px-4 py-3">Aksi</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {data.map((p:any)=>(
-                <tr key={p.id}>
-                  <td className="px-4 py-3 font-medium">{p.nama_lengkap}</td>
-                  <td className="px-4 py-3">{p.nik||'-'}</td>
-                  <td className="px-4 py-3">{p.nomor_telepon||'-'}</td>
-                  <td className="px-4 py-3">{p.alamat||'-'}</td>
-                  {canManage && (
-                    <td className="px-4 py-3 text-right flex justify-end gap-1">
-                      <button onClick={()=>startEdit(p)} className="px-2.5 py-1.5 rounded-lg border text-xs">Edit</button>
-                      <button onClick={()=>setDeleteId(p.id)} className="px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">Hapus</button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {meta && <div className="flex justify-between px-6 py-4 border-t text-xs text-slate-500"><span>Total {meta.total}</span><div className="flex gap-2"><button disabled={page<=1} onClick={()=>setPage(p=>p-1)} className="px-3 py-1 rounded-lg border disabled:opacity-50">Prev</button><button disabled={page>=meta.last_page} onClick={()=>setPage(p=>p+1)} className="px-3 py-1 rounded-lg border disabled:opacity-50">Next</button></div></div>}
+        {loading ? (
+          <TableSkeleton rows={5} cols={canManage ? 5 : 4} />
+        ) : data.length === 0 ? (
+          <div className="p-10 text-center text-slate-500">
+            Belum ada data orang tua / wali.
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="text-left px-4 py-3">Nama</th>
+                    <th className="text-left px-4 py-3">NIK</th>
+                    <th className="text-left px-4 py-3">Telepon</th>
+                    <th className="text-left px-4 py-3">Alamat</th>
+                    {canManage && <th className="text-right px-4 py-3">Aksi</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {data.map((p: any) => (
+                    <tr key={p.id}>
+                      <td className="px-4 py-3 font-medium">{p.nama_lengkap}</td>
+                      <td className="px-4 py-3">{p.nik || '-'}</td>
+                      <td className="px-4 py-3">{p.nomor_telepon || '-'}</td>
+                      <td className="px-4 py-3">{p.alamat || '-'}</td>
+                      {canManage && (
+                        <td className="px-4 py-3 text-right flex justify-end gap-1">
+                          <button onClick={() => startEdit(p)} className="px-2.5 py-1.5 rounded-lg border text-xs">
+                            Edit
+                          </button>
+                          <button onClick={() => setDeleteId(p.id)} className="px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
+                            Hapus
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {meta && (
+              <div className="flex justify-between px-6 py-4 border-t text-xs text-slate-500">
+                <span>Total {meta.total}</span>
+                <div className="flex gap-2">
+                  <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1 rounded-lg border disabled:opacity-50">
+                    Prev
+                  </button>
+                  <button disabled={page >= meta.last_page} onClick={() => setPage((p) => p + 1)} className="px-3 py-1 rounded-lg border disabled:opacity-50">
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </Card>
 
       {showForm && (

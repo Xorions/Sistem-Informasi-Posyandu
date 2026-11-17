@@ -5,6 +5,7 @@ import { can } from '@/shared/lib/rbac'
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { StatusBadge } from "@/shared/components/ui/badge"
 import { Button, Field, Input, Select, Textarea } from "@/shared/components/ui/field"
+import { CardSkeleton } from "@/shared/components/ui/Skeleton"
 import { useToast } from "@/shared/components/ui/toast"
 import { isValidPhone } from '@/shared/lib/utils'
 
@@ -13,6 +14,7 @@ export default function PosyanduPage() {
   const toast = useToast()
   const canManage = can(role, 'manage-posyandu')
   const [data, setData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -33,9 +35,12 @@ export default function PosyanduPage() {
 
   const fetch = async () => {
     try {
+      setLoading(true)
       const r = await api.get('/posyandu', { params: { per_page: 100 } })
       setData(r.data.data?.data || r.data.data || [])
-    } catch {}
+    } catch {} finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -153,39 +158,45 @@ export default function PosyanduPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {data.map((p: any) => (
-          <Card key={p.id}>
-            <CardContent>
-              <p className="font-semibold">{p.nama_posyandu}</p>
-              <p className="text-xs text-slate-500">
-                {p.kode_posyandu} • {p.alamat}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                {p.desa_kelurahan}, {p.kecamatan} • {p.nama_ketua}
-              </p>
-              <div className="flex gap-2 mt-3 items-center justify-between">
-                <StatusBadge status={p.status} />
-                {canManage && (
-                  <div className="flex gap-1">
-                    <Button size="sm" variant="secondary" onClick={() => openEdit(p)}>
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="danger" onClick={() => del(p.id)}>
-                      Hapus
-                    </Button>
+      {loading ? (
+        <CardSkeleton count={6} />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {data.map((p: any) => (
+              <Card key={p.id}>
+                <CardContent>
+                  <p className="font-semibold">{p.nama_posyandu}</p>
+                  <p className="text-xs text-slate-500">
+                    {p.kode_posyandu} • {p.alamat}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {p.desa_kelurahan}, {p.kecamatan} • {p.nama_ketua}
+                  </p>
+                  <div className="flex gap-2 mt-3 items-center justify-between">
+                    <StatusBadge status={p.status} />
+                    {canManage && (
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="secondary" onClick={() => openEdit(p)}>
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => del(p.id)}>
+                          Hapus
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-      {data.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-10 text-slate-500">Belum ada data posyandu.</CardContent>
-        </Card>
+          {data.length === 0 && (
+            <Card>
+              <CardContent className="text-center py-10 text-slate-500">Belum ada data posyandu.</CardContent>
+            </Card>
+          )}
+        </>
       )}
 
       {showForm && (

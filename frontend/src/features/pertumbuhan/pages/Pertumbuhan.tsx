@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from "@/shared/lib/api"
 import { Card, CardContent, CardHeader } from "@/shared/components/ui/card"
+import { GrowthSkeleton } from "@/shared/components/ui/Skeleton"
 import { useDebounce } from "@/shared/hooks/useDebounce"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { Link } from 'react-router-dom'
@@ -15,15 +16,19 @@ export default function Pertumbuhan() {
   const [exams, setExams] = useState<any[]>([])
   const [metric, setMetric] = useState<'weight'|'height'|'head_circumference'|'arm_circumference'>('weight')
   const [loadingChart, setLoadingChart] = useState(false)
+  const [loadingChildren, setLoadingChildren] = useState(true)
 
   const fetchChildren = async () => {
     try {
+      setLoadingChildren(true)
       const r = await api.get('/children', { params: { search: debounced || undefined, per_page: 20 } })
       setChildren(r.data.data)
       if (r.data.data.length && !selected) {
         setSelected(r.data.data[0])
       }
-    } catch {}
+    } catch {} finally {
+      setLoadingChildren(false)
+    }
   }
   useEffect(() => { fetchChildren() }, [debounced])
 
@@ -58,8 +63,12 @@ export default function Pertumbuhan() {
         </CardContent>
       </Card>
 
-      {!selected ? (
+      {loadingChildren && !selected ? (
+        <GrowthSkeleton />
+      ) : !selected ? (
         <Card><CardContent className="text-center py-10 text-slate-500">Pilih anak untuk melihat pertumbuhan.</CardContent></Card>
+      ) : loadingChart ? (
+        <GrowthSkeleton />
       ) : (
         <>
           <Card>

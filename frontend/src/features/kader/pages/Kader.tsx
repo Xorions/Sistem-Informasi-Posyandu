@@ -3,6 +3,7 @@ import { apiErrorMessage, apiKader, apiPosyandu, apiUsers, apiValidationErrors }
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/card'
 import { StatusBadge } from '@/shared/components/ui/badge'
 import { Button, EmptyState, ErrorState, Field, Input, Select, Spinner } from '@/shared/components/ui/field'
+import { TableSkeleton } from '@/shared/components/ui/Skeleton'
 import { ConfirmDeleteModal } from '@/shared/components/ui/modal'
 import { useToast } from '@/shared/components/ui/toast'
 import { useDebounce } from '@/shared/hooks/useDebounce'
@@ -331,7 +332,7 @@ export default function KaderPage() {
       <Card>
         <CardContent>
           {loading ? (
-            <Spinner />
+            <TableSkeleton rows={5} cols={7} />
           ) : error ? (
             <ErrorState message={error} onRetry={load} />
           ) : rows.length === 0 ? (
