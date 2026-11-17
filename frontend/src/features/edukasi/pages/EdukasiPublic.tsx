@@ -14,7 +14,7 @@ function PublicHeader() {
       <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
         <Link to={ROUTES.edukasiPublic} className="flex items-center gap-2">
           <img
-            src="/LogoLampungSelatan.jpeg"
+            src="/LogoLampungSelatan.png"
             alt="Logo Lampung Selatan"
             className="w-8 h-8 object-contain shrink-0"
           />

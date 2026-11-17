@@ -58,7 +58,7 @@ export default function Login() {
         <div className="w-full max-w-[420px]">
           <div className="flex items-center gap-3 mb-8">
             <img
-              src="/LogoLampungSelatan.jpeg"
+              src="/LogoLampungSelatan.png"
               alt="Logo Posyandu"
               className="w-14 h-14 md:w-16 md:h-16 object-contain drop-shadow-sm shrink-0"
             />

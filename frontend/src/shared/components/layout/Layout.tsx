@@ -117,7 +117,7 @@ export default function Layout() {
         <div className="p-5 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-3">
             <img
-              src="/LogoLampungSelatan.jpeg"
+              src="/LogoLampungSelatan.png"
               alt="Logo Lampung Selatan"
               className="w-10 h-10 object-contain shrink-0"
             />
@@ -165,7 +165,7 @@ export default function Layout() {
             ☰
           </button>
           <div className="flex items-center gap-2">
-            <img src="/LogoLampungSelatan.jpeg" alt="Logo Lampung Selatan" className="w-7 h-7 object-contain shrink-0" />
+            <img src="/LogoLampungSelatan.png" alt="Logo Lampung Selatan" className="w-7 h-7 object-contain shrink-0" />
             <span className="font-bold text-slate-800">{CONFIG.APP_NAME}</span>
           </div>
           <div className="w-9" />
