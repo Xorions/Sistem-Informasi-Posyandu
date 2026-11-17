@@ -57,9 +57,11 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center p-6 bg-white">
         <div className="w-full max-w-[420px]">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center text-white font-bold">
-              P
-            </div>
+            <img
+              src="/LogoLampungSelatan.jpeg"
+              alt="Logo Posyandu"
+              className="w-14 h-14 md:w-16 md:h-16 object-contain drop-shadow-sm shrink-0"
+            />
             <div>
               <p className="font-bold text-slate-900">{CONFIG.APP_NAME}</p>
               <p className="text-xs text-slate-500">{CONFIG.APP_TAGLINE}</p>

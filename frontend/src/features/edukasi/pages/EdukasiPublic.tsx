@@ -13,9 +13,11 @@ function PublicHeader() {
     <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
       <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
         <Link to={ROUTES.edukasiPublic} className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white font-bold">
-            P
-          </div>
+          <img
+            src="/LogoLampungSelatan.jpeg"
+            alt="Logo Lampung Selatan"
+            className="w-8 h-8 object-contain shrink-0"
+          />
           <span className="font-bold text-slate-800">{CONFIG.APP_NAME}</span>
         </Link>
         <Link

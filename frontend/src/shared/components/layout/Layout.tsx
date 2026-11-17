@@ -116,9 +116,11 @@ export default function Layout() {
       >
         <div className="p-5 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-              P
-            </div>
+            <img
+              src="/LogoLampungSelatan.jpeg"
+              alt="Logo Lampung Selatan"
+              className="w-10 h-10 object-contain shrink-0"
+            />
             <div className="min-w-0">
               <p className="font-bold text-slate-800 leading-none">Posyandu</p>
               <p className="font-bold text-teal-600 leading-none -mt-0.5">Terpadu</p>
@@ -162,7 +164,10 @@ export default function Layout() {
           >
             ☰
           </button>
-          <span className="font-bold text-slate-800">{CONFIG.APP_NAME}</span>
+          <div className="flex items-center gap-2">
+            <img src="/LogoLampungSelatan.jpeg" alt="Logo Lampung Selatan" className="w-7 h-7 object-contain shrink-0" />
+            <span className="font-bold text-slate-800">{CONFIG.APP_NAME}</span>
+          </div>
           <div className="w-9" />
         </header>
 
