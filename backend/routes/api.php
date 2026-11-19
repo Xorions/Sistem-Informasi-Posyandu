@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\SpecialCareController;
 use App\Http\Controllers\Api\UserController;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 // TEMPORARY: Preview inspection route - active in spike environment
@@ -37,6 +38,27 @@ if (in_array(config('app.env'), ['preview', 'production', 'local'])) {
         ]);
     });
 }
+
+// Keep-Alive Supabase (Free Tier auto-pause prevention)
+Route::middleware('throttle:10,1')->get('/ping-db', function () {
+    try {
+        DB::select('SELECT 1');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'OK',
+            'data' => [
+                'database' => 'connected',
+                'timestamp' => now()->toIso8601String(),
+            ],
+        ], 200);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Database unavailable',
+        ], 500);
+    }
+});
 
 // Public edukasi
 Route::get('/edukasi', [EducationController::class, 'publicIndex']);
