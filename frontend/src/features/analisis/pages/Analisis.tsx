@@ -1,11 +1,25 @@
 import { useEffect, useState } from 'react'
-import { api } from "@/shared/lib/api"
+import { api, apiChildren } from "@/shared/lib/api"
 import { Card, CardContent, CardHeader } from "@/shared/components/ui/card"
 import { AnalysisSkeleton } from "@/shared/components/ui/Skeleton"
 import { useDebounce } from "@/shared/hooks/useDebounce"
 import { Badge } from "@/shared/components/ui/badge"
 import { Link } from 'react-router-dom'
 import { formatDate } from "@/shared/lib/utils"
+import { SearchableSelect } from '@/shared/components/ui/SearchableSelect'
+
+function formatAgeMonths(value: unknown) {
+  const months = Math.round(Number(value))
+  if (!Number.isFinite(months) || months < 0) return '-'
+  if (months < 12) return `${months} bulan`
+  const years = Math.floor(months / 12)
+  const remainingMonths = months % 12
+  return remainingMonths ? `${years} thn ${remainingMonths} bln` : `${years} thn`
+}
+
+function isPlaceholderSource(source?: string | null) {
+  return /internal median approximation|ganti dengan standar resmi/i.test(source ?? '')
+}
 
 export default function Analisis() {
   const [search, setSearch] = useState('')
@@ -22,9 +36,9 @@ export default function Analisis() {
   const fetchChildren = async () => {
     try {
       setLoadingChildren(true)
-      const r = await api.get('/children', { params: { search: debounced || undefined, per_page: 20 } })
-      setChildren(r.data.data)
-      if (r.data.data.length && !selected) setSelected(r.data.data[0])
+      const result = await apiChildren.list({ search: debounced || undefined, per_page: 20 })
+      setChildren(result.data)
+      if (result.data.length && !selected) setSelected(result.data[0])
     } catch {} finally {
       setLoadingChildren(false)
     }
@@ -70,19 +84,26 @@ export default function Analisis() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Analisis Pertumbuhan</h1>
-        <p className="text-sm text-slate-500">Output <code>GrowthAnalysisService</code> + <code>NutritionRecommendationService</code> – murni pemantauan/skrining, <b>bukan diagnosis</b></p>
+        <p className="text-sm text-slate-500">Pemantauan status gizi dan rekomendasi edukasi berdasarkan standar pertumbuhan anak, bukan diagnosis medis.</p>
       </div>
 
       <Card>
-        <CardContent className="flex flex-wrap gap-3">
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari anak..." className="flex-1 min-w-[220px] px-3 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 outline-none" />
-          <select value={selected?.id||''} onChange={e=>{
-            const c = children.find(x=> String(x.id)===e.target.value)
-            if(c) setSelected(c)
-          }} className="px-3 py-2.5 rounded-xl border border-slate-200 bg-white min-w-[220px]">
-            <option value="">Pilih Anak</option>
-            {children.map((c:any)=><option key={c.id} value={c.id}>{c.nama_lengkap} – {c.posyandu?.nama_posyandu}</option>)}
-          </select>
+        <CardContent>
+          <div className="w-full sm:max-w-lg">
+            <SearchableSelect
+              value={selected?.id ?? ''}
+              onChange={(id) => {
+                const child = children.find((item) => String(item.id) === id)
+                if (child) setSelected(child)
+              }}
+              onSearchChange={setSearch}
+              selectedOption={selected ? { value: selected.id, label: `${selected.nama_lengkap} – ${selected.posyandu?.nama_posyandu ?? ''}`, searchText: selected.nik ?? '' } : undefined}
+              options={children.map((child: any) => ({ value: child.id, label: `${child.nama_lengkap} – ${child.posyandu?.nama_posyandu ?? ''}`, searchText: child.nik ?? '' }))}
+              placeholder="Pilih anak"
+              searchPlaceholder="Cari nama atau NIK anak..."
+              emptyMessage={loadingChildren ? 'Mencari anak...' : 'Anak tidak ditemukan.'}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -101,7 +122,7 @@ export default function Analisis() {
               <div className="flex gap-3 items-center">
                 <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center font-bold text-teal-700">{selected.nama_lengkap.charAt(0)}</div>
                 <div>
-                  <p className="font-semibold">{selected.nama_lengkap} <span className="text-xs text-slate-500">• {analysis.age_months ?? '-'} bulan • {analysis.gender==='L'?'Laki-laki':'Perempuan'}</span></p>
+                  <p className="font-semibold">{selected.nama_lengkap} <span className="text-xs text-slate-500">• {formatAgeMonths(analysis.age_months)} • {analysis.gender==='L'?'Laki-laki':'Perempuan'}</span></p>
                   <p className="text-xs text-slate-500">{selected.posyandu?.nama_posyandu} • <Link to={`/children/${selected.id}`} className="text-teal-600 hover:underline">Detail Anak →</Link></p>
                 </div>
               </div>
@@ -112,9 +133,14 @@ export default function Analisis() {
           <Card>
             <CardContent>
               <div className={`p-4 rounded-xl border ${statusColor(analysis.overall_status)}`}>
-                <p className="font-bold flex items-center gap-2"><Badge label={analysis.overall_status} /> <span className="ml-2">{analysis.overall_status}</span></p>
+                <p className="font-bold"><Badge label={analysis.overall_status} /></p>
                 <p className="text-sm mt-2">{analysis.summary}</p>
-                {analysis.analyzed_at && <p className="text-xs text-slate-500 mt-2">Dianalisis: {formatDate(analysis.analyzed_at)} • Sumber: {analysis.indicators?.weight?.source || 'Konfigurasi sistem'}</p>}
+                {analysis.analyzed_at && (
+                  <p className="text-xs text-slate-500 mt-2">
+                    Dianalisis: {formatDate(analysis.analyzed_at)}
+                    {analysis.indicators?.weight?.source && !isPlaceholderSource(analysis.indicators.weight.source) && ` • Sumber: ${analysis.indicators.weight.source}`}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -130,7 +156,7 @@ export default function Analisis() {
                     <p className="text-xs text-slate-600">{val.message}</p>
                     {val.deviation_percent !== undefined && <p className="text-xs text-slate-400">Deviasi: {val.deviation_percent}% dari referensi {val.reference}</p>}
                     {val.plausible_min !== undefined && <p className="text-xs text-slate-400">Rentang pemantauan: {val.plausible_min} – {val.plausible_max}</p>}
-                    {val.source && <p className="text-[11px] text-slate-400">Sumber: {val.source}</p>}
+                    {val.source && !isPlaceholderSource(val.source) && <p className="text-[11px] text-slate-400">Sumber: {val.source}</p>}
                   </CardContent>
                 </Card>
               ))}
@@ -138,7 +164,7 @@ export default function Analisis() {
           )}
 
           <Card>
-            <CardHeader title="Rekomendasi Edukasi (rule-based)" subtitle="Dari NutritionRecommendationService – bersifat edukasi & tindak lanjut" />
+            <CardHeader title="Rekomendasi Edukasi" subtitle="Saran untuk mendukung pemantauan dan tindak lanjut." />
             <CardContent>
               {recommendations.length===0 ? <p className="text-sm text-slate-500">Belum ada rekomendasi.</p> : (
                 <div className="space-y-3">

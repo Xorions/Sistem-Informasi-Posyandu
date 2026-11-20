@@ -76,7 +76,7 @@ export function parseNumeric(value: unknown): number | null {
   if (typeof value === 'string') {
     const trimmed = value.trim()
     if (!trimmed) return null
-    const parsed = Number(trimmed)
+    const parsed = Number(trimmed.replace(',', '.'))
     return isNaN(parsed) ? null : parsed
   }
   return null

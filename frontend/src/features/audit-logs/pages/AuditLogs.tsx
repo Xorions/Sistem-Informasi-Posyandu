@@ -12,7 +12,9 @@ const formatDateTime = (dateStr: string) => {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
       hour12: false,
+      timeZone: 'Asia/Jakarta',
     }).format(d)
     return `${formatted} WIB`
   } catch {

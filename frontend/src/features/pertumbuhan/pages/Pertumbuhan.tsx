@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { api } from "@/shared/lib/api"
+import { api, apiChildren } from "@/shared/lib/api"
 import { Card, CardContent, CardHeader } from "@/shared/components/ui/card"
 import { GrowthSkeleton } from "@/shared/components/ui/Skeleton"
 import { useDebounce } from "@/shared/hooks/useDebounce"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { Link } from 'react-router-dom'
 import { formatDate } from "@/shared/lib/utils"
+import { SearchableSelect } from "@/shared/components/ui/SearchableSelect"
 
 export default function Pertumbuhan() {
   const [search, setSearch] = useState('')
@@ -21,10 +22,10 @@ export default function Pertumbuhan() {
   const fetchChildren = async () => {
     try {
       setLoadingChildren(true)
-      const r = await api.get('/children', { params: { search: debounced || undefined, per_page: 20 } })
-      setChildren(r.data.data)
-      if (r.data.data.length && !selected) {
-        setSelected(r.data.data[0])
+      const result = await apiChildren.list({ search: debounced || undefined, per_page: 20 })
+      setChildren(result.data)
+      if (result.data.length && !selected) {
+        setSelected(result.data[0])
       }
     } catch {} finally {
       setLoadingChildren(false)
@@ -47,19 +48,26 @@ export default function Pertumbuhan() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Pertumbuhan</h1>
-        <p className="text-sm text-slate-500">Grafik BB/TB/PB/LK/LiLA per anak – data dari <code>growth_records</code></p>
+        <p className="text-sm text-slate-500">Grafik berat, tinggi/panjang, lingkar kepala, dan LiLA per anak.</p>
       </div>
 
       <Card>
         <CardContent className="flex flex-wrap gap-3">
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari anak (nama/NIK)..." className="flex-1 min-w-[220px] px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500" />
-          <select value={selected?.id||''} onChange={e=>{
-            const c = children.find(x=> String(x.id)===e.target.value)
-            if(c) setSelected(c)
-          }} className="px-3 py-2.5 rounded-xl border border-slate-200 bg-white min-w-[200px]">
-            <option value="">Pilih Anak</option>
-            {children.map((c:any)=><option key={c.id} value={c.id}>{c.nama_lengkap} – {c.posyandu?.nama_posyandu}</option>)}
-          </select>
+          <div className="w-full sm:max-w-md">
+            <SearchableSelect
+              value={selected?.id ?? ''}
+              onChange={(id) => {
+                const child = children.find((item) => String(item.id) === id)
+                if (child) setSelected(child)
+              }}
+              onSearchChange={setSearch}
+              selectedOption={selected ? { value: selected.id, label: `${selected.nama_lengkap} – ${selected.posyandu?.nama_posyandu ?? ''}`, searchText: selected.nik ?? '' } : undefined}
+              options={children.map((child: any) => ({ value: child.id, label: `${child.nama_lengkap} – ${child.posyandu?.nama_posyandu ?? ''}`, searchText: child.nik ?? '' }))}
+              placeholder="Pilih anak"
+              searchPlaceholder="Cari nama atau NIK anak..."
+              emptyMessage={loadingChildren ? 'Mencari anak...' : 'Anak tidak ditemukan.'}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -132,7 +140,7 @@ export default function Pertumbuhan() {
           </div>
 
           <Card>
-            <CardHeader title="Tabel Pertumbuhan (growth_records)" />
+            <CardHeader title="Riwayat Pengukuran" />
             <CardContent className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="bg-slate-50 text-slate-500 uppercase"><tr><th className="text-left px-3 py-2">Tanggal</th><th className="text-left px-3 py-2">BB kg</th><th className="text-left px-3 py-2">TB/PB cm</th><th className="text-left px-3 py-2">LK cm</th><th className="text-left px-3 py-2">LiLA cm</th></tr></thead>

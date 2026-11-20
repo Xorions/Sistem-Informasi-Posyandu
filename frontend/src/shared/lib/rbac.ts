@@ -69,8 +69,6 @@ const KADER_PERMS: Permission[] = [
   'manage-anak',
   'view-orang-tua',
   'manage-orang-tua',
-  'view-posyandu',
-  'view-kader',
   'view-pemeriksaan',
   'manage-pemeriksaan',
   'view-imunisasi',

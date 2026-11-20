@@ -9,6 +9,7 @@ import { ConfirmDeleteModal } from '@/shared/components/ui/modal'
 import { useToast } from '@/shared/components/ui/toast'
 import { can } from '@/shared/lib/rbac'
 import { useAuth } from '@/features/auth/AuthContext'
+import { SearchableSelect } from '@/shared/components/ui/SearchableSelect'
 import {
   EMPTY_PAGE_META,
   JENIS_PEMBERIAN_LABEL,
@@ -49,8 +50,12 @@ function toForm(i: Imunisasi): FormState {
 
 export default function ImmunizationsPage() {
   const toast = useToast()
-  const { role } = useAuth()
+  const { role, user, isAdmin, isKader } = useAuth()
   const canManage = can(role, 'manage-imunisasi')
+  const assignedPosyanduId = user?.posyandu_id ?? user?.posyandus?.[0]?.id ?? user?.posyandu?.id
+  const isBranchAdmin = isAdmin && user?.posyandus?.length === 1
+  const canChoosePosyandu = isAdmin && !isBranchAdmin
+  const assignedPosyanduName = user?.posyandu?.nama_posyandu ?? user?.posyandus?.[0]?.nama_posyandu
 
   const [rows, setRows] = useState<Imunisasi[]>([])
   const [children, setChildren] = useState<Child[]>([])
@@ -89,6 +94,9 @@ export default function ImmunizationsPage() {
       const { data, meta } = await apiImunisasi.list({
         jenis: jenisFilter || undefined,
         status: statusFilter || undefined,
+        posyandu_id: canChoosePosyandu
+          ? posyanduFilter || undefined
+          : (isKader || isBranchAdmin ? assignedPosyanduId : undefined),
         page,
         per_page: 20,
       })
@@ -100,7 +108,7 @@ export default function ImmunizationsPage() {
     } finally {
       setLoading(false)
     }
-  }, [jenisFilter, statusFilter, page])
+  }, [jenisFilter, statusFilter, posyanduFilter, canChoosePosyandu, assignedPosyanduId, page])
 
   useEffect(() => {
     void load()
@@ -245,7 +253,7 @@ export default function ImmunizationsPage() {
           }
         />
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className={`grid grid-cols-1 gap-5 ${canChoosePosyandu ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
             <Select
               value={jenisFilter}
               onChange={(e) => {
@@ -272,21 +280,28 @@ export default function ImmunizationsPage() {
               <option value="belum">Belum</option>
               <option value="terjadwal">Terjadwal</option>
             </Select>
-            <Select
-              value={posyanduFilter}
-              onChange={(e) => {
-                setPosyanduFilter(e.target.value)
-                setPage(1)
-              }}
-            >
-              <option value="">Semua posyandu</option>
-              {posyandus.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nama_posyandu}
-                </option>
-              ))}
-            </Select>
+            {canChoosePosyandu ? (
+              <Select
+                value={posyanduFilter}
+                onChange={(e) => {
+                  setPosyanduFilter(e.target.value)
+                  setPage(1)
+                }}
+              >
+                <option value="">Semua posyandu</option>
+                {posyandus.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nama_posyandu}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
           </div>
+          {!canChoosePosyandu && (isKader || isBranchAdmin) && assignedPosyanduName && (
+            <p className="mt-4 inline-flex rounded-full bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-800">
+              Posyandu: {assignedPosyanduName}
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -389,19 +404,17 @@ export default function ImmunizationsPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 {!editing && (
                   <Field label="Anak" required error={errors.child_id}>
-                    <Select
+                    <SearchableSelect
                       value={form.child_id}
-                      onChange={set('child_id')}
+                      onChange={(childId) => {
+                        setForm((current) => ({ ...current, child_id: childId }))
+                        if (errors.child_id) setErrors((current) => ({ ...current, child_id: '' }))
+                      }}
                       hasError={!!errors.child_id}
                       required
-                    >
-                      <option value="">-- Pilih anak --</option>
-                      {filterAnak.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nama_lengkap}
-                        </option>
-                      ))}
-                    </Select>
+                      placeholder="Pilih anak"
+                      options={filterAnak.map((child) => ({ value: child.id, label: child.nama_lengkap, searchText: child.nik ?? '' }))}
+                    />
                   </Field>
                 )}
 

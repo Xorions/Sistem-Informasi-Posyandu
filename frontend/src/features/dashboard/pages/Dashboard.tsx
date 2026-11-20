@@ -185,8 +185,8 @@ export default function Dashboard() {
       ]
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap justify-between items-start gap-4">
+    <div className="space-y-8">
+      <div className="flex flex-wrap justify-between items-start gap-5">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
             {isOrangTua ? 'Ringkasan Anak Saya' : 'Dashboard'}
@@ -227,7 +227,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {stats.map((s) => (
           <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} tone={s.tone} />
         ))}
@@ -254,7 +254,7 @@ export default function Dashboard() {
 
       {!isOrangTua && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
             {[
               ['Total Orang Tua', data.total_orang_tua],
               ['Total Pemeriksaan', data.total_pemeriksaan],
@@ -274,28 +274,6 @@ export default function Dashboard() {
               ))}
           </div>
 
-          {isAdmin && data.total_anak_global !== undefined && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
-                <CardContent>
-                  <p className="text-xs text-slate-400 uppercase font-semibold">Total Anak (semua posyandu)</p>
-                  <p className="text-2xl font-bold mt-1">{data.total_anak_global}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent>
-                  <p className="text-xs text-slate-400 uppercase font-semibold">Jumlah Posyandu</p>
-                  <p className="text-2xl font-bold mt-1">{data.total_posyandu_global}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent>
-                  <p className="text-xs text-slate-400 uppercase font-semibold">Total Pemeriksaan Global</p>
-                  <p className="text-2xl font-bold mt-1">{data.total_pemeriksaan}</p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
         </>
       )}
 

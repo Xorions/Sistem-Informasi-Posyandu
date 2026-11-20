@@ -6,6 +6,7 @@ import { Button, Field, Input, Select, Textarea } from "@/shared/components/ui/f
 import { CardSkeleton, TableSkeleton } from "@/shared/components/ui/Skeleton"
 import { useToast } from "@/shared/components/ui/toast"
 import { formatDate } from "@/shared/lib/utils"
+import { SearchableSelect } from "@/shared/components/ui/SearchableSelect"
 import { useAuth } from '@/features/auth/AuthContext'
 import { can } from '@/shared/lib/rbac'
 
@@ -550,24 +551,17 @@ export default function FollowUps() {
               )}
 
               <Field label="Anak" required error={errors.child_id}>
-                <select
+                <SearchableSelect
                   required
                   value={form.child_id}
-                  onChange={(e) => {
-                    setForm({ ...form, child_id: e.target.value })
+                  onChange={(childId) => {
+                    setForm({ ...form, child_id: childId })
                     if (errors.child_id) setErrors({ ...errors, child_id: '' })
                   }}
-                  className={`w-full h-12 px-3 rounded-xl border ${
-                    errors.child_id ? 'border-red-500' : 'border-slate-200'
-                  } bg-white text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500`}
-                >
-                  <option value="">-- Pilih Anak --</option>
-                  {children.map((c: any) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nama_lengkap} (NIK: {c.nik || '-'})
-                    </option>
-                  ))}
-                </select>
+                  hasError={!!errors.child_id}
+                  placeholder="Pilih anak"
+                  options={children.map((child: any) => ({ value: child.id, label: child.nama_lengkap, searchText: child.nik ?? '' }))}
+                />
               </Field>
 
               <Field label="Posyandu" required error={errors.posyandu_id}>

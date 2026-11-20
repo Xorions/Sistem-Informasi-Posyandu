@@ -6,6 +6,7 @@ import { Button, Field, Input, Select, Textarea } from "@/shared/components/ui/f
 import { useToast } from "@/shared/components/ui/toast"
 import { buildDirtyPayload, isMasked, isValidNik, isValidPhone } from "@/shared/lib/utils"
 import { useAuth } from '@/features/auth/AuthContext'
+import { SearchableSelect } from '@/shared/components/ui/SearchableSelect'
 
 type ParentInput = {
   parent_id?: number | ''
@@ -400,8 +401,8 @@ export default function ChildForm({ mode }: { mode: 'create' | 'edit' }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="md:col-span-2">
                     <Field label="Pilih dari data existing (opsional)">
-                      <Select value={p.parent_id||''} onChange={e=>{
-                        const val = e.target.value ? parseInt(e.target.value) : ''
+                      <SearchableSelect value={p.parent_id||''} onChange={value=>{
+                        const val = value ? parseInt(value, 10) : ''
                         if (val) {
                           const ex = existingParents.find((x:any)=>x.id===val)
                           if (ex) updateParent(idx, {
@@ -414,10 +415,10 @@ export default function ChildForm({ mode }: { mode: 'create' | 'edit' }) {
                           })
                           else updateParent(idx, { parent_id: val })
                         } else updateParent(idx, { parent_id: '', })
-                      }}>
-                        <option value="">-- Buat baru --</option>
-                        {existingParents.map((ex:any)=><option key={ex.id} value={ex.id}>{ex.nama_lengkap} - {ex.nik||'-'}</option>)}
-                      </Select>
+                      }}
+                        placeholder="Ketik untuk mencari orang tua"
+                        options={existingParents.map((parent: any) => ({ value: parent.id, label: `${parent.nama_lengkap} - ${parent.nik || '-'}`, searchText: parent.nik ?? '' }))}
+                      />
                     </Field>
                   </div>
                   <div>

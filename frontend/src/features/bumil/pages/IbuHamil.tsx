@@ -11,7 +11,8 @@ import { useToast } from '@/shared/components/ui/toast'
 import { can } from '@/shared/lib/rbac'
 import { useAuth } from '@/features/auth/AuthContext'
 import { parseNumeric } from '@/shared/lib/utils'
-import type { IbuHamil, OrangTua, Posyandu } from '@/shared/types'
+import type { IbuHamil, OrangTua, PosyanduRef } from '@/shared/types'
+import { SearchableSelect } from '@/shared/components/ui/SearchableSelect'
 
 type FormState = {
   parent_id: string
@@ -62,11 +63,13 @@ function toForm(i: IbuHamil): FormState {
 export default function IbuHamilPage() {
   const toast = useToast()
   const navigate = useNavigate()
-  const { role, isAdmin } = useAuth()
+  const { role, isAdmin, user } = useAuth()
   const canManage = can(role, 'manage-ibu-hamil')
+  const canChoosePosyandu = isAdmin && (user?.posyandus?.length ?? 0) > 1
+  const assignedPosyanduId = user?.kader?.posyandu_id ?? user?.posyandu_id ?? user?.posyandus?.[0]?.id
 
   const [rows, setRows] = useState<IbuHamil[]>([])
-  const [posyandus, setPosyandus] = useState<Posyandu[]>([])
+  const [posyandus, setPosyandus] = useState<PosyanduRef[]>([])
   const [parents, setParents] = useState<OrangTua[]>([])
 
   const [loading, setLoading] = useState(true)
@@ -75,6 +78,11 @@ export default function IbuHamilPage() {
   const [posyanduFilter, setPosyanduFilter] = useState('')
   const [trimesterFilter, setTrimesterFilter] = useState('')
   const [search, setSearch] = useState('')
+  const effectivePosyanduFilter = canChoosePosyandu
+    ? posyanduFilter
+    : assignedPosyanduId != null
+      ? String(assignedPosyanduId)
+      : ''
 
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<IbuHamil | null>(null)
@@ -90,7 +98,7 @@ export default function IbuHamilPage() {
     try {
       setError(null)
       const { data } = await apiIbuHamil.list({
-        posyandu_id: posyanduFilter || undefined,
+        posyandu_id: effectivePosyanduFilter || undefined,
         trimester: trimesterFilter || undefined,
         search: search || undefined,
         per_page: 50,
@@ -102,7 +110,7 @@ export default function IbuHamilPage() {
     } finally {
       setLoading(false)
     }
-  }, [posyanduFilter, trimesterFilter, search])
+  }, [effectivePosyanduFilter, trimesterFilter, search])
 
   useEffect(() => {
     void load()
@@ -111,22 +119,32 @@ export default function IbuHamilPage() {
   useEffect(() => {
     void (async () => {
       try {
-        const [pos, par] = await Promise.all([
-          apiPosyandu.list({ per_page: 100 }),
-          apiParents.list({ per_page: 100 }),
-        ])
-
-        setPosyandus(pos.data)
-        setParents(par.data)
+        const parentsResult = await apiParents.list({ per_page: 100 })
+        setParents(parentsResult.data)
       } catch {
-        // Referensi opsional; halaman tetap bisa menampilkan daftar.
+        // Referensi orang tua opsional; halaman tetap bisa menampilkan daftar.
       }
     })()
-  }, [])
+    if (canChoosePosyandu) {
+      void apiPosyandu.list({ per_page: 100 }).then((result) => setPosyandus(result.data)).catch(() => {
+        // Filter daftar tetap dapat dipakai bila referensi posyandu gagal dimuat.
+      })
+    } else {
+      const assigned = user?.posyandus?.length
+        ? user.posyandus
+        : user?.posyandu
+          ? [user.posyandu]
+          : []
+      setPosyandus(assigned)
+    }
+  }, [canChoosePosyandu, user])
 
   const openCreate = () => {
     setEditing(null)
-    setForm({ ...EMPTY_FORM, posyandu_id: posyanduFilter || String(posyandus[0]?.id ?? '') })
+    setForm({
+      ...EMPTY_FORM,
+      posyandu_id: effectivePosyanduFilter || String(posyandus[0]?.id ?? ''),
+    })
     setFormError(null)
     setErrors({})
     setOpen(true)
@@ -159,6 +177,10 @@ export default function IbuHamilPage() {
     }
     if (form.hpht && form.hpht > today) {
       errs.hpht = 'HPHT tidak boleh di masa depan.'
+    } else if (form.hpht) {
+      const hphtDate = new Date(`${form.hpht}T00:00:00`)
+      const gestationDays = Math.floor((new Date(`${today}T00:00:00`).getTime() - hphtDate.getTime()) / 86400000)
+      if (gestationDays > 42 * 7) errs.hpht = 'Usia kehamilan dari HPHT melebihi 42 minggu. Periksa kembali tanggal HPHT sebelum menyimpan.'
     }
     if (form.tanggal_perkiraan_lahir && form.tanggal_perkiraan_lahir <= today) {
       errs.tanggal_perkiraan_lahir = 'Perkiraan hari lahir harus di masa depan.'
@@ -254,6 +276,11 @@ export default function IbuHamilPage() {
       if (errors[key]) setErrors((prev) => ({ ...prev, [key]: '' }))
     }
 
+  const hphtToday = new Date()
+  hphtToday.setHours(0, 0, 0, 0)
+  const hphtDate = form.hpht ? new Date(`${form.hpht}T00:00:00`) : null
+  const hphtOver42Weeks = hphtDate !== null && hphtToday.getTime() - hphtDate.getTime() > 42 * 7 * 86400000
+
   return (
     <div className="space-y-5">
       <Card>
@@ -269,16 +296,18 @@ export default function IbuHamilPage() {
           }
         />
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className={`grid gap-3 md:grid-cols-2 ${canChoosePosyandu ? 'md:grid-cols-3' : ''}`}>
             <Input placeholder="Cari nama ibu..." value={search} onChange={(e) => setSearch(e.target.value)} />
-            <Select value={posyanduFilter} onChange={(e) => setPosyanduFilter(e.target.value)}>
-              <option value="">Semua posyandu</option>
-              {posyandus.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nama_posyandu}
-                </option>
-              ))}
-            </Select>
+            {canChoosePosyandu && (
+              <Select value={posyanduFilter} onChange={(e) => setPosyanduFilter(e.target.value)}>
+                <option value="">Semua posyandu</option>
+                {posyandus.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nama_posyandu}
+                  </option>
+                ))}
+              </Select>
+            )}
             <Select value={trimesterFilter} onChange={(e) => setTrimesterFilter(e.target.value)}>
               <option value="">Semua trimester</option>
               <option value="1">Trimester 1 (0-13 minggu)</option>
@@ -317,7 +346,10 @@ export default function IbuHamilPage() {
 
                   <div className="mt-3 grid grid-cols-2 gap-y-1 text-xs">
                     <span className="text-slate-500">Usia kehamilan</span>
-                    <span className="text-slate-800 font-medium text-right">{i.usia_kehamilan} minggu</span>
+                    <span className={`font-semibold text-right ${Number(i.usia_kehamilan) > 42 ? 'text-red-700' : 'text-slate-800'}`}>
+                      {i.usia_kehamilan} minggu
+                      {Number(i.usia_kehamilan) > 42 && <span className="ml-1 inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[10px] text-red-700">Perlu perhatian</span>}
+                    </span>
                     <span className="text-slate-500">Perkiraan lahir</span>
                     <span className="text-slate-800 font-medium text-right">{i.tanggal_perkiraan_lahir}</span>
                     {i.pemeriksaan_terakhir && (
@@ -368,22 +400,19 @@ export default function IbuHamilPage() {
                     hint="Pilih ibu dari daftar orang tua yang sudah terdaftar."
                     error={errors.parent_id}
                   >
-                    <Select
+                    <SearchableSelect
                       value={form.parent_id}
-                      onChange={set('parent_id')}
+                      onChange={(parentId) => setForm((current) => ({ ...current, parent_id: parentId }))}
                       hasError={!!errors.parent_id}
                       required
-                    >
-                      <option value="">-- Pilih orang tua --</option>
-                      {parents
-                        .filter((p) => p.jenis_kelamin === 'P')
-                        .map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.nama_lengkap}
-                            {p.nik ? ` (${p.nik})` : ''}
-                          </option>
-                        ))}
-                    </Select>
+                      placeholder="Pilih orang tua"
+                      searchPlaceholder="Cari nama atau NIK..."
+                      options={parents.filter((parent) => parent.jenis_kelamin === 'P').map((parent) => ({
+                        value: parent.id,
+                        label: `${parent.nama_lengkap}${parent.nik ? ` (${parent.nik})` : ''}`,
+                        searchText: parent.nik ?? '',
+                      }))}
+                    />
                   </Field>
                 )}
 
@@ -406,13 +435,13 @@ export default function IbuHamilPage() {
                 <Field
                   label="HPHT"
                   hint="Hari pertama haid terakhir. Usia kehamilan dihitung dari sini."
-                  error={errors.hpht}
+                  error={errors.hpht || (hphtOver42Weeks ? 'Usia kehamilan dari HPHT melebihi 42 minggu. Periksa kembali tanggal HPHT.' : undefined)}
                 >
                   <Input
                     type="date"
                     value={form.hpht}
                     onChange={set('hpht')}
-                    hasError={!!errors.hpht}
+                    hasError={!!errors.hpht || hphtOver42Weeks}
                     max={new Date().toISOString().slice(0, 10)}
                   />
                 </Field>

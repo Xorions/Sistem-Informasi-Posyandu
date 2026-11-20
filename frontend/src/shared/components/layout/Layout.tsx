@@ -111,7 +111,11 @@ export default function Layout() {
     navigate(ROUTES.login)
   }
 
-  const posyanduNames = user?.posyandus?.map((p) => p.nama_posyandu).join(', ')
+  const assignedPosyandus = user?.posyandus?.length
+    ? user.posyandus
+    : user?.posyandu
+      ? [user.posyandu]
+      : []
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-slate-50 overscroll-none">
@@ -133,9 +137,8 @@ export default function Layout() {
               className="w-10 h-10 object-contain shrink-0"
             />
             <div className="min-w-0">
-              <p className="font-bold text-slate-800 leading-none">Posyandu</p>
-              <p className="font-bold text-teal-600 leading-none -mt-0.5">Terpadu</p>
-              <p className="text-[11px] text-slate-500 mt-1 tracking-wide truncate">{CONFIG.APP_TAGLINE}</p>
+              <p className="whitespace-nowrap text-[15px] font-bold leading-tight text-slate-800">Posyandu <span className="text-teal-600">Terpadu</span></p>
+              <p className="text-[11px] text-slate-500 mt-1 tracking-wide whitespace-normal break-words leading-snug">{CONFIG.APP_TAGLINE}</p>
             </div>
           </div>
 
@@ -145,7 +148,12 @@ export default function Layout() {
             {user?.kader?.jabatan && (
               <p className="text-[11px] text-slate-500 truncate">{user.kader.jabatan}</p>
             )}
-            {posyanduNames && <p className="text-[11px] text-teal-600 mt-1 truncate">{posyanduNames}</p>}
+            {assignedPosyandus.map((posyandu) => (
+              <p key={posyandu.id} className="text-[11px] text-teal-700 mt-1 leading-snug">
+                {posyandu.nama_posyandu}
+                {posyandu.kode_posyandu ? <span className="text-slate-500"> · {posyandu.kode_posyandu}</span> : null}
+              </p>
+            ))}
           </div>
         </div>
 

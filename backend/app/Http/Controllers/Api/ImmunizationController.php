@@ -15,8 +15,18 @@ class ImmunizationController extends Controller
 {
     public function index(Request $request)
     {
+        $user = $request->user();
         $q = Immunization::with(['child', 'recorder'])
-            ->forUser($request->user());
+            ->forUser($user);
+
+        if ($posyanduId = $request->query('posyandu_id')) {
+            $posyanduId = (int) $posyanduId;
+            if (! $user->canAccessPosyandu($posyanduId)) {
+                return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+            }
+
+            $q->whereHas('child', fn ($childQuery) => $childQuery->where('posyandu_id', $posyanduId));
+        }
 
         if ($childId = $request->query('child_id')) {
             $q->where('child_id', $childId);
